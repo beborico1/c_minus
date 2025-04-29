@@ -1,0 +1,26 @@
+/* Programa de muestra en C-
+   Calcula el factorial de un número
+*/
+
+int factorial(int n)
+{
+    if (n <= 1)
+        return 1;
+    else
+        return n * factorial(n-1);
+}
+
+void main(void)
+{
+    int x;      /* valor de entrada */
+    int result; /* resultado */
+    
+    /* Leer valor de entrada */
+    x = input();
+    
+    /* Calcular factorial */
+    result = factorial(x);
+    
+    /* Mostrar resultado */
+    output(result);
+}
