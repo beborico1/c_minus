@@ -1,6 +1,6 @@
 from enum import Enum
 
-# TokenType - Definición de todos los tokens del lenguaje C-minus
+# TokenType - Definicion de todos los tokens del lenguaje C-minus
 class TokenType(Enum):
     # Token especial para el fin de archivo
     ENDFILE = 300
@@ -18,7 +18,7 @@ class TokenType(Enum):
     ID = 310 # identificadores
     NUM = 311 # numeros
     
-    # Símbolos especiales
+    # Simbolos especiales
     PLUS = '+' # suma
     MINUS = '-' # resta
     TIMES = '*' # multiplicacion
@@ -38,8 +38,10 @@ class TokenType(Enum):
     RBRACKET = ']' # corchete derecho
     LBRACE = '{' # llave izquierda
     RBRACE = '}' # llave derecha
+    AND = '&&' # operador logico AND
+    OR = '||' # operador logico OR
 
-# Estados para el analizador léxico
+# Estados para el analizador lexico
 class StateType(Enum):
     START = 0
     INCOMMENT = 1
@@ -51,7 +53,7 @@ class StateType(Enum):
     INNOT = 7
     DONE = 8
 
-# Tipo de nodo (sentencia, expresión o declaración)
+# Tipo de nodo (sentencia, expresion o declaracion)
 class NodeKind(Enum):
     StmtK = 0
     ExpK = 1
@@ -71,7 +73,7 @@ class ExpKind(Enum):
     ConstK = 1
     IdK = 2
     CallK = 3
-    SubscriptK = 4  # Para indexación de arreglos
+    SubscriptK = 4  # Para indexacion de arreglos
 
 # Tipos de declaraciones para C-minus
 class DeclKind(Enum):
@@ -79,14 +81,14 @@ class DeclKind(Enum):
     FunK = 1
     ParamK = 2
 
-# Tipos de expresiones para comprobación de tipos
+# Tipos de expresiones para comprobacion de tipos
 class ExpType(Enum):
     Void = 0
     Integer = 1
     Boolean = 2
     Array = 3
 
-# Diccionario de palabras reservadas para búsqueda eficiente
+# Diccionario de palabras reservadas para busqueda eficiente
 RESERVED_WORDS = {
     'else': TokenType.ELSE,
     'if': TokenType.IF,

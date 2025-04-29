@@ -62,7 +62,7 @@ def getLine():
     return programa[start:end]
 
 def getLinePosition():
-    """Obtiene la posición actual en la línea"""
+    """Obtiene la posicion actual en la linea"""
     global linepos
     return linepos
 
