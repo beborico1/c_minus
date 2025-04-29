@@ -4,10 +4,14 @@
 
 int factorial(int n)
 {
-    if (n <= 1)
+    if (n <= 1) /* Caso base */
+    {
         return 1;
+    }
     else
+    {
         return n * factorial(n-1);
+    }
 }
 
 void main(void)
@@ -15,12 +19,9 @@ void main(void)
     int x;      /* valor de entrada */
     int result; /* resultado */
     
-    /* Leer valor de entrada */
-    x = input();
+    /* Inicializar variable */
+    x = 5;
     
     /* Calcular factorial */
     result = factorial(x);
-    
-    /* Mostrar resultado */
-    output(result);
 }

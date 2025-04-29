@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Programa principal para el compilador de C-
+Programa principal para el analizador sintáctico de C-minus
 """
-from global_types import *
-from lexer import getToken, globales as lexer_globales
-from parser import parser, globales as parser_globales
+from globalTypes import *
+from Lexer import globales as lexer_globales
+from Parser import parser, globales as parser_globales
 
 def main():
-    """Función principal del compilador de C-"""
+    """Función principal del analizador sintáctico de C-minus"""
     print("Compilador de C-minus")
     print("---------------------")
     
@@ -31,7 +31,10 @@ def main():
             
             AST = parser(True)  # True para imprimir el AST
             
-            print("\nAnálisis sintáctico completado.")
+            if AST is not None:
+                print("\nAnálisis sintáctico completado exitosamente.")
+            else:
+                print("\nEl programa contiene errores y no pudo ser compilado correctamente.")
             
     except FileNotFoundError:
         print(f"Error: No se pudo encontrar el archivo '{filename}'")

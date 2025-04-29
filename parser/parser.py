@@ -1,461 +1,87 @@
-"""
-Analizador sintáctico para el lenguaje C- basado en la técnica descendente recursivo
-Implementación simplificada con todos los componentes en un solo archivo
-"""
-from enum import Enum
+from globalTypes import *
+from Lexer import getToken, getLine, ungetToken
 
-#
-# DEFINICIONES DE TIPOS GLOBALES
-#
-
-# TokenType - Definición de todos los tokens del lenguaje C-
-class TokenType(Enum):
-    # Token especial para el fin de archivo
-    ENDFILE = 300
-    ERROR = 301
-    
-    # Palabras reservadas
-    ELSE = 'else'
-    IF = 'if'
-    INT = 'int'
-    RETURN = 'return'
-    VOID = 'void'
-    WHILE = 'while'
-    
-    # Tokens multicaracter
-    ID = 310 # identificadores
-    NUM = 311 # números
-    
-    # Símbolos especiales
-    PLUS = '+' # suma
-    MINUS = '-' # resta
-    TIMES = '*' # multiplicación
-    DIVIDE = '/' # división
-    LT = '<' # menor que
-    LTE = '<=' # menor o igual que
-    GT = '>' # mayor que
-    GTE = '>=' # mayor o igual que
-    EQ = '==' # igual a
-    NEQ = '!=' # no igual a
-    ASSIGN = '=' # asignación
-    SEMI = ';' # punto y coma
-    COMMA = ',' # coma
-    LPAREN = '(' # paréntesis izquierdo
-    RPAREN = ')' # paréntesis derecho
-    LBRACKET = '[' # corchete izquierdo
-    RBRACKET = ']' # corchete derecho
-    LBRACE = '{' # llave izquierda
-    RBRACE = '}' # llave derecha
-
-# Estados para el analizador léxico
-class StateType(Enum):
-    START = 0
-    INCOMMENT = 1
-    INNUM = 2
-    INID = 3
-    INASSIGN = 4
-    INLT = 5
-    INGT = 6
-    INNOT = 7
-    DONE = 8
-
-# Tipo de nodo (sentencia, expresión o declaración)
-class NodeKind(Enum):
-    StmtK = 0
-    ExpK = 1
-    DeclK = 2
-
-# Tipos de sentencias para C-
-class StmtKind(Enum):
-    IfK = 0
-    WhileK = 1
-    AssignK = 2
-    ReturnK = 3
-    CompoundK = 4
-
-# Tipos de expresiones para C-
-class ExpKind(Enum):
-    OpK = 0
-    ConstK = 1
-    IdK = 2
-    CallK = 3
-    SubscriptK = 4  # Para indexación de arreglos
-
-# Tipos de declaraciones para C-
-class DeclKind(Enum):
-    VarK = 0
-    FunK = 1
-    ParamK = 2
-
-# Tipos de expresiones para comprobación de tipos
-class ExpType(Enum):
-    Void = 0
-    Integer = 1
-    Boolean = 2
-    Array = 3
-
-# Diccionario de palabras reservadas para búsqueda eficiente
-RESERVED_WORDS = {
-    'else': TokenType.ELSE,
-    'if': TokenType.IF,
-    'int': TokenType.INT,
-    'return': TokenType.RETURN,
-    'void': TokenType.VOID,
-    'while': TokenType.WHILE
-}
-
-# Máximo número de hijos por nodo
-MAXCHILDREN = 3
-
-#
-# ESTRUCTURA DEL ÁRBOL SINTÁCTICO
-#
-
-class TreeNode:
-    """Clase para representar los nodos del árbol sintáctico"""
-    def __init__(self):
-        self.child = [None] * MAXCHILDREN  # Hijos del nodo
-        self.sibling = None                # Hermano del nodo
-        self.lineno = 0                    # Línea donde aparece
-        self.nodekind = None               # Tipo de nodo (StmtK, ExpK, DeclK)
-        
-        # Para nodos de tipo StmtK
-        self.stmt = None                   # Tipo de sentencia
-        
-        # Para nodos de tipo ExpK
-        self.exp = None                    # Tipo de expresión
-        self.op = None                     # Operador
-        self.val = None                    # Valor (para constantes)
-        self.name = None                   # Nombre (para variables)
-        self.type = None                   # Tipo de dato
-        
-        # Para nodos de tipo DeclK
-        self.decl = None                   # Tipo de declaración
-        self.is_array = False              # Indica si es un arreglo
-        self.array_size = None             # Tamaño del arreglo
-        self.params = []                   # Parámetros (para funciones)
-
-#
-# VARIABLES GLOBALES
-#
-
-# Variables globales para el lexer
-programa = ""    # Contiene el string completo del programa
+# Variables globales
+programa = ""    # Contiene el programa completo como string
 posicion = 0     # Posición actual en el programa
 progLong = 0     # Longitud original del programa
-lineno = 1       # Número de línea actual
-linepos = 0      # Posición en la línea actual
 
-# Variables para guardar estado
-saved_token = None
-saved_tokenString = None
-saved_lineno = None
+# Variables para el parser
+token = None         # Token actual
+tokenString = ""     # Valor del token actual
+lineno = 1           # Número de línea actual
+Error = False        # Indica si se ha encontrado algún error
 
-# Variables globales para el parser
-token = None
-tokenString = ""
-Error = False
-SyntaxTree = None
+# Variable para indentación al imprimir el árbol
+indentno = 0         # Cantidad de espacios de indentación
 
-# Variable global para la indentación en la impresión del árbol
-indentno = 0
-
-#
-# FUNCIONES DEL LEXER
-#
+# Constantes
+MAXCHILDREN = 3      # Número máximo de hijos por nodo del AST
 
 def globales(prog, pos, long):
     """
-    Función para recibir variables globales desde el programa principal
+    Recibe las variables globales del programa principal
     
     Args:
-        prog: String con el programa completo
+        prog: Programa completo
         pos: Posición inicial
         long: Longitud del programa
     """
-    global programa, posicion, progLong, lineno, linepos
+    global programa, posicion, progLong
     programa = prog
     posicion = pos
     progLong = long
-    lineno = 1
-    linepos = 0
 
-def getChar():
+def syntaxError(message):
     """
-    Obtiene el siguiente caracter del programa
-    
-    Returns:
-        Siguiente caracter del programa
-    """
-    global posicion, linepos
-    if posicion < len(programa):
-        c = programa[posicion]
-        posicion += 1
-        linepos += 1
-        return c
-    return '$'  # Fin de archivo
-
-def ungetChar():
-    """Retrocede un caracter"""
-    global posicion, linepos
-    if posicion > 0:
-        posicion -= 1
-        linepos -= 1
-
-def peek():
-    """
-    Mira el siguiente caracter sin avanzar
-    
-    Returns:
-        Siguiente caracter del programa
-    """
-    if posicion < len(programa):
-        return programa[posicion]
-    return '$'
-
-def getLine():
-    """
-    Obtiene la línea actual completa
-    
-    Returns:
-        String con la línea actual
-    """
-    global programa, posicion, linepos
-    
-    # Encontrar el inicio de la línea actual
-    start = posicion - linepos
-    
-    # Encontrar el final de la línea
-    end = start
-    while end < len(programa) and programa[end] != '\n':
-        end += 1
-    
-    return programa[start:end]
-
-def printError(message, errorPos=None):
-    """
-    Imprime un mensaje de error con la línea y la posición
+    Reporta un error de sintaxis con información de la ubicación
     
     Args:
         message: Mensaje de error
-        errorPos: Posición del error en la línea
     """
-    global lineno, linepos
+    global lineno, Error, tokenString
     
+    Error = True
     line = getLine()
-    pos = errorPos if errorPos is not None else linepos - 1
     
-    print(f"Línea {lineno}: {message}")
+    # Calcular la posición para el indicador de error (^)
+    # Intenta encontrar la posición del token en la línea
+    pos = line.find(tokenString) if tokenString else 0
+    if pos < 0:  # Si no se encuentra, usar una posición aproximada
+        pos = 0
+    
+    print(f"\n>>> Error de sintaxis - Línea {lineno}: {message}")
     print(line)
     print(" " * pos + "^")
+    
+    if token is not None and token != TokenType.ERROR:
+        print(f"   Se encontró: '{tokenString}' (token: {token.name})")
 
-def reservedLookup(tokenString):
+def match(expected):
     """
-    Busca si un identificador es palabra reservada
+    Verifica si el token actual coincide con el esperado y avanza al siguiente
     
     Args:
-        tokenString: String a buscar
-        
-    Returns:
-        TokenType correspondiente a la palabra reservada o TokenType.ID
+        expected: Token esperado
     """
-    # Usar el diccionario para búsqueda eficiente
-    return RESERVED_WORDS.get(tokenString, TokenType.ID)
+    global token, tokenString, lineno
+    
+    if token == expected:
+        token, tokenString, lineno = getToken(False)
+    else:
+        syntaxError(f"Se esperaba '{expected}', pero se encontró '{tokenString}'")
 
-def getToken(imprime=True):
-    """
-    Obtiene el siguiente token del programa
-    
-    Args:
-        imprime: Bandera para indicar si se imprime el token
-        
-    Returns:
-        Tupla (token, tokenString, lineno)
-    """
-    global lineno, linepos, saved_token, saved_tokenString, saved_lineno
-    
-    # Verificar si hay un token guardado
-    if saved_token is not None:
-        token = saved_token
-        tokenString = saved_tokenString
-        line = saved_lineno
-        
-        # Limpiar el token guardado
-        saved_token = None
-        saved_tokenString = None
-        saved_lineno = None
-        
-        # Imprimir el token si se requiere
-        if imprime:
-            print(f"{line:4d}: {token.name:10s} = {tokenString}")
-        
-        return token, tokenString, line
-    
-    # Inicializar variables
-    tokenString = ""    # String para almacenar el token
-    tokenType = None    # Tipo del token (valor de TokenType)
-    state = StateType.START  # Estado actual - siempre comienza en START
-    save = True         # Bandera para indicar si se guarda en tokenString
-    
-    # Loop principal del autómata
-    while state != StateType.DONE:
-        c = getChar()
-        save = True
-        
-        if state == StateType.START:
-            if c.isdigit():
-                state = StateType.INNUM
-            elif c.isalpha():
-                state = StateType.INID
-            elif c == '=':
-                state = StateType.INASSIGN
-            elif c == '<':
-                state = StateType.INLT
-            elif c == '>':
-                state = StateType.INGT
-            elif c == '!':
-                state = StateType.INNOT
-            elif c == '/':
-                nextChar = peek()
-                if nextChar == '*':
-                    save = False
-                    getChar()  # Consume el '*'
-                    state = StateType.INCOMMENT
-                else:
-                    state = StateType.DONE
-                    tokenType = TokenType.DIVIDE
-            elif c in [' ', '\t', '\n', '\r']:
-                save = False
-                if c == '\n':
-                    lineno += 1
-                    linepos = 0
-            else:
-                state = StateType.DONE
-                if c == '$':  # EOF
-                    save = False
-                    tokenType = TokenType.ENDFILE
-                elif c == '+':
-                    tokenType = TokenType.PLUS
-                elif c == '-':
-                    tokenType = TokenType.MINUS
-                elif c == '*':
-                    tokenType = TokenType.TIMES
-                elif c == ';':
-                    tokenType = TokenType.SEMI
-                elif c == ',':
-                    tokenType = TokenType.COMMA
-                elif c == '(':
-                    tokenType = TokenType.LPAREN
-                elif c == ')':
-                    tokenType = TokenType.RPAREN
-                elif c == '[':
-                    tokenType = TokenType.LBRACKET
-                elif c == ']':
-                    tokenType = TokenType.RBRACKET
-                elif c == '{':
-                    tokenType = TokenType.LBRACE
-                elif c == '}':
-                    tokenType = TokenType.RBRACE
-                else:
-                    tokenType = TokenType.ERROR
-                    printError(f"Caracter ilegal: '{c}'")
-        
-        elif state == StateType.INCOMMENT:
-            save = False
-            if c == '*' and peek() == '/':
-                getChar()  # Consume el '/'
-                state = StateType.START
-            elif c == '\n':
-                lineno += 1
-                linepos = 0
-            elif c == '$':  # EOF en medio de un comentario
-                state = StateType.DONE
-                tokenType = TokenType.ERROR
-                printError("Comentario sin cerrar")
-        
-        elif state == StateType.INNUM:
-            if not c.isdigit():
-                ungetChar()
-                save = False
-                state = StateType.DONE
-                tokenType = TokenType.NUM
-        
-        elif state == StateType.INID:
-            if not (c.isalpha() or c.isdigit()):
-                ungetChar()
-                save = False
-                state = StateType.DONE
-                tokenType = TokenType.ID
-        
-        elif state == StateType.INASSIGN:
-            state = StateType.DONE
-            if c == '=':
-                tokenType = TokenType.EQ
-            else:
-                ungetChar()
-                save = False
-                tokenType = TokenType.ASSIGN
-        
-        elif state == StateType.INLT:
-            state = StateType.DONE
-            if c == '=':
-                tokenType = TokenType.LTE
-            else:
-                ungetChar()
-                save = False
-                tokenType = TokenType.LT
-        
-        elif state == StateType.INGT:
-            state = StateType.DONE
-            if c == '=':
-                tokenType = TokenType.GTE
-            else:
-                ungetChar()
-                save = False
-                tokenType = TokenType.GT
-        
-        elif state == StateType.INNOT:
-            state = StateType.DONE
-            if c == '=':
-                tokenType = TokenType.NEQ
-            else:
-                ungetChar()
-                save = False
-                tokenType = TokenType.ERROR
-                printError("Se esperaba '=' después de '!'")
-        
-        else:  # Nunca debería ocurrir
-            state = StateType.DONE
-            tokenType = TokenType.ERROR
-            printError("Error en el analizador léxico")
-        
-        # Guardar el caracter en tokenString si es necesario
-        if save and c != '$':
-            tokenString += c
-    
-    # Si es un ID, verificar si es una palabra reservada
-    if tokenType == TokenType.ID:
-        tokenType = reservedLookup(tokenString)
-    
-    # Imprimir el token si se requiere
-    if imprime:
-        print(f"{lineno:4d}: {tokenType.name:10s} = {tokenString}")
-    
-    return tokenType, tokenString, lineno
-
-#
-# FUNCIONES PARA CREAR NODOS DEL AST
-#
+# Funciones para crear nodos del AST
 
 def newStmtNode(kind):
     """
-    Crea un nuevo nodo de tipo sentencia (StmtK)
+    Crea un nuevo nodo de tipo sentencia
     
     Args:
         kind: Tipo de sentencia
         
     Returns:
-        Nuevo nodo de tipo sentencia
+        Nodo de sentencia
     """
     global lineno
     t = TreeNode()
@@ -467,13 +93,13 @@ def newStmtNode(kind):
 
 def newExpNode(kind):
     """
-    Crea un nuevo nodo de tipo expresión (ExpK)
+    Crea un nuevo nodo de tipo expresión
     
     Args:
         kind: Tipo de expresión
         
     Returns:
-        Nuevo nodo de tipo expresión
+        Nodo de expresión
     """
     global lineno
     t = TreeNode()
@@ -486,13 +112,13 @@ def newExpNode(kind):
 
 def newDeclNode(kind):
     """
-    Crea un nuevo nodo de tipo declaración (DeclK)
+    Crea un nuevo nodo de tipo declaración
     
     Args:
         kind: Tipo de declaración
         
     Returns:
-        Nuevo nodo de tipo declaración
+        Nodo de declaración
     """
     global lineno
     t = TreeNode()
@@ -502,68 +128,62 @@ def newDeclNode(kind):
         t.lineno = lineno
     return t
 
-#
-# FUNCIONES PARA EL PARSER
-#
-
-def syntaxError(message):
-    """
-    Reporta un error de sintaxis
+class TreeNode:
+    """Nodo del Árbol Sintáctico Abstracto (AST)"""
     
-    Args:
-        message: Mensaje de error
-    """
-    global Error, lineno
-    print(f">>> Error de sintaxis en línea {lineno}: {message}")
-    Error = True
-
-def match(expected):
-    """
-    Verifica si el token actual coincide con el esperado
-    y avanza al siguiente token
-    
-    Args:
-        expected: Token esperado
-    """
-    global token, tokenString, lineno
-    
-    if token == expected:
-        token, tokenString, lineno = getToken(False)
-    else:
-        syntaxError(f"Token inesperado -> se encontró {tokenString}")
-        # Avanzar para evitar bucle infinito
-        token, tokenString, lineno = getToken(False)
+    def __init__(self):
+        self.child = [None] * MAXCHILDREN  # Hijos del nodo
+        self.sibling = None                # Hermano del nodo
+        self.lineno = 0                    # Línea donde aparece
+        self.nodekind = None               # Tipo de nodo (StmtK, ExpK, DeclK)
+        
+        # Para nodos de tipo StmtK
+        self.stmt = None                   # Tipo de sentencia
+        
+        # Para nodos de tipo ExpK
+        self.exp = None                    # Tipo de expresión
+        self.op = None                     # Operador
+        self.val = None                    # Valor
+        self.name = None                   # Nombre
+        self.type = None                   # Tipo
+        
+        # Para nodos de tipo DeclK
+        self.decl = None                   # Tipo de declaración
+        self.is_array = False              # Indica si es un arreglo
+        self.array_size = None             # Tamaño del arreglo
+        self.params = []                   # Parámetros (para funciones)
 
 def parser(imprime = True):
     """
-    Función principal del analizador sintáctico que genera el AST
+    Función principal del parser que genera el AST
     
     Args:
-        imprime: Bandera para indicar si se debe imprimir el AST
+        imprime: Indica si se debe imprimir el AST
         
     Returns:
-        AST: Árbol sintáctico abstracto del programa
+        Árbol sintáctico abstracto
     """
-    global token, tokenString, lineno, Error, SyntaxTree
+    global token, tokenString, lineno, Error
     
     # Inicializar variables
     Error = False
     
     # Obtener el primer token
-    token, tokenString, lineno = getToken(imprime)
+    token, tokenString, lineno = getToken(False)
     
     # Construir el árbol sintáctico
-    SyntaxTree = parse_program()
+    syntax_tree = parse_program()
     
     # Verificar si se llegó al final del archivo
     if token != TokenType.ENDFILE:
         syntaxError("Código termina antes que el archivo")
-        
-    # Imprimir el árbol sintáctico
-    if imprime and SyntaxTree is not None:
-        printTree(SyntaxTree)
-        
-    return SyntaxTree
+    
+    # Imprimir el AST si se requiere
+    if imprime and syntax_tree is not None:
+        print("\n=== Árbol Sintáctico Abstracto (AST) ===\n")
+        printTree(syntax_tree)
+    
+    return syntax_tree
 
 def parse_program():
     """
@@ -571,7 +191,7 @@ def parse_program():
     program → declaration-list
     
     Returns:
-        Árbol sintáctico del programa
+        Nodo raíz del AST
     """
     return parse_declaration_list()
 
@@ -581,13 +201,12 @@ def parse_declaration_list():
     declaration-list → declaration-list declaration | declaration
     
     Returns:
-        Árbol sintáctico de la lista de declaraciones
+        Lista de nodos de declaración
     """
-    global token
+    t = None  # Primer nodo
+    p = None  # Último nodo procesado
     
-    t = None
-    p = None
-    
+    # Procesar declaraciones mientras sean posibles
     while token in [TokenType.INT, TokenType.VOID]:
         q = parse_declaration()
         
@@ -606,29 +225,29 @@ def parse_declaration():
     declaration → var-declaration | fun-declaration
     
     Returns:
-        Árbol sintáctico de la declaración
+        Nodo de declaración
     """
     global token, tokenString
     
-    # Guardar el tipo especificador
-    type_spec = token
-    
     # Verificar que sea un tipo válido
     if token not in [TokenType.INT, TokenType.VOID]:
-        syntaxError("Se esperaba un tipo de especificador (int o void)")
+        syntaxError("Se esperaba un tipo (int o void)")
         return None
     
+    # Guardar el tipo especificador
+    type_spec = token
     match(token)
     
-    # Guardar el nombre del identificador
+    # Verificar que haya un identificador
     if token != TokenType.ID:
         syntaxError("Se esperaba un identificador")
         return None
     
+    # Guardar el nombre del identificador
     id_name = tokenString
     match(TokenType.ID)
     
-    # Verificar si es una declaración de variable o función
+    # Determinar si es declaración de variable o función
     if token == TokenType.SEMI or token == TokenType.LBRACKET:
         # Es una declaración de variable
         return parse_var_declaration(type_spec, id_name)
@@ -649,10 +268,11 @@ def parse_var_declaration(type_spec, id_name):
         id_name: Nombre del identificador
         
     Returns:
-        Árbol sintáctico de la declaración de variable
+        Nodo de declaración de variable
     """
     global token, tokenString
     
+    # Crear nodo para la declaración
     t = newDeclNode(DeclKind.VarK)
     
     if t is not None:
@@ -666,7 +286,11 @@ def parse_var_declaration(type_spec, id_name):
             
             # Verificar que el tamaño sea un número
             if token == TokenType.NUM:
-                t.array_size = int(tokenString)
+                try:
+                    t.array_size = int(tokenString)
+                except ValueError:
+                    syntaxError("Tamaño de arreglo inválido")
+                    t.array_size = 0
                 match(TokenType.NUM)
             else:
                 syntaxError("Se esperaba un número para el tamaño del arreglo")
@@ -688,10 +312,11 @@ def parse_fun_declaration(type_spec, id_name):
         id_name: Nombre del identificador
         
     Returns:
-        Árbol sintáctico de la declaración de función
+        Nodo de declaración de función
     """
     global token
     
+    # Crear nodo para la declaración
     t = newDeclNode(DeclKind.FunK)
     
     if t is not None:
@@ -729,6 +354,9 @@ def parse_params():
         # Verificar si hay más parámetros
         if token == TokenType.RPAREN:
             return params_list
+        
+        # Si no es cierre de paréntesis, es un error de declaración
+        syntaxError("Parámetro void debe ser el único cuando se usa")
     
     # Parsear lista de parámetros
     return parse_param_list()
@@ -769,6 +397,7 @@ def parse_param():
     """
     global token, tokenString
     
+    # Crear nodo para el parámetro
     t = newDeclNode(DeclKind.ParamK)
     
     if t is not None:
@@ -805,10 +434,11 @@ def parse_compound_stmt():
     compound-stmt → { local-declarations statement-list }
     
     Returns:
-        Árbol sintáctico de la sentencia compuesta
+        Nodo de sentencia compuesta
     """
     global token
     
+    # Crear nodo para la sentencia compuesta
     t = newStmtNode(StmtKind.CompoundK)
     
     match(TokenType.LBRACE)
@@ -830,7 +460,7 @@ def parse_local_declarations():
     local-declarations → local-declarations var-declaration | empty
     
     Returns:
-        Árbol sintáctico de las declaraciones locales
+        Lista de nodos de declaración local
     """
     global token, tokenString
     
@@ -838,18 +468,16 @@ def parse_local_declarations():
     
     # Parsear declaraciones de variables locales
     while token == TokenType.INT or token == TokenType.VOID:
-        p = None
-        
         # Guardar el tipo especificador
         type_spec = token
         match(token)
         
-        # Guardar el nombre del identificador
+        # Verificar que haya un identificador
         if token != TokenType.ID:
             syntaxError("Se esperaba un identificador")
-            token, tokenString, lineno = getToken(False)
             continue
         
+        # Guardar el nombre del identificador
         id_name = tokenString
         match(TokenType.ID)
         
@@ -875,7 +503,7 @@ def parse_statement_list():
     statement-list → statement-list statement | empty
     
     Returns:
-        Árbol sintáctico de la lista de sentencias
+        Lista de nodos de sentencia
     """
     global token
     
@@ -903,7 +531,7 @@ def parse_statement():
     statement → expression-stmt | compound-stmt | selection-stmt | iteration-stmt | return-stmt
     
     Returns:
-        Árbol sintáctico de la sentencia
+        Nodo de sentencia
     """
     global token
     
@@ -928,7 +556,7 @@ def parse_expression_stmt():
     expression-stmt → expression ; | ;
     
     Returns:
-        Árbol sintáctico de la sentencia de expresión
+        Nodo de sentencia de expresión
     """
     global token
     
@@ -938,8 +566,13 @@ def parse_expression_stmt():
         # Sentencia vacía
         match(TokenType.SEMI)
     else:
+        # Sentencia con expresión
         t = parse_expression()
-        match(TokenType.SEMI)
+        
+        if token == TokenType.SEMI:
+            match(TokenType.SEMI)
+        else:
+            syntaxError("Se esperaba ';'")
     
     return t
 
@@ -949,27 +582,31 @@ def parse_selection_stmt():
     selection-stmt → if ( expression ) statement | if ( expression ) statement else statement
     
     Returns:
-        Árbol sintáctico de la sentencia de selección
+        Nodo de sentencia if
     """
     global token
     
+    # Crear nodo para la sentencia if
     t = newStmtNode(StmtKind.IfK)
     
     match(TokenType.IF)
     match(TokenType.LPAREN)
     
     if t is not None:
+        # Parsear la condición
         t.child[0] = parse_expression()
     
     match(TokenType.RPAREN)
     
     if t is not None:
+        # Parsear la sentencia 'then'
         t.child[1] = parse_statement()
     
     if token == TokenType.ELSE:
         match(TokenType.ELSE)
         
         if t is not None:
+            # Parsear la sentencia 'else'
             t.child[2] = parse_statement()
     
     return t
@@ -980,21 +617,24 @@ def parse_iteration_stmt():
     iteration-stmt → while ( expression ) statement
     
     Returns:
-        Árbol sintáctico de la sentencia de iteración
+        Nodo de sentencia while
     """
     global token
     
+    # Crear nodo para la sentencia while
     t = newStmtNode(StmtKind.WhileK)
     
     match(TokenType.WHILE)
     match(TokenType.LPAREN)
     
     if t is not None:
+        # Parsear la condición
         t.child[0] = parse_expression()
     
     match(TokenType.RPAREN)
     
     if t is not None:
+        # Parsear el cuerpo del ciclo
         t.child[1] = parse_statement()
     
     return t
@@ -1005,10 +645,11 @@ def parse_return_stmt():
     return-stmt → return ; | return expression ;
     
     Returns:
-        Árbol sintáctico de la sentencia de retorno
+        Nodo de sentencia return
     """
     global token
     
+    # Crear nodo para la sentencia return
     t = newStmtNode(StmtKind.ReturnK)
     
     match(TokenType.RETURN)
@@ -1028,70 +669,85 @@ def parse_expression():
     expression → var = expression | simple-expression
     
     Returns:
-        Árbol sintáctico de la expresión
+        Nodo de expresión
     """
     global token, tokenString
     
-    # Guardar el token actual para verificar si es una asignación
+    # Verificar si comienza con un identificador (potencial asignación)
     if token == TokenType.ID:
-        # Almacenar el ID actual
+        # Guardar información del identificador
         id_name = tokenString
+        
         match(TokenType.ID)
         
-        # Verificar si es una variable seguida de una asignación
-        if token == TokenType.ASSIGN:
-            # Es una asignación
+        # Comprobar si es un acceso a arreglo
+        if token == TokenType.LBRACKET:
+            # Es un acceso a arreglo
+            t = newExpNode(ExpKind.SubscriptK)
+            
+            if t is not None:
+                t.name = id_name
+                
+                match(TokenType.LBRACKET)
+                t.child[0] = parse_expression()
+                match(TokenType.RBRACKET)
+                
+                # Verificar si es una asignación
+                if token == TokenType.ASSIGN:
+                    p = newStmtNode(StmtKind.AssignK)
+                    
+                    if p is not None:
+                        p.child[0] = t  # Variable
+                        
+                        match(TokenType.ASSIGN)
+                        p.child[1] = parse_expression()  # Valor
+                    
+                    return p
+                else:
+                    # Es un acceso a arreglo como parte de una expresión
+                    return t
+            
+        # Comprobar si es una asignación simple
+        elif token == TokenType.ASSIGN:
             t = newStmtNode(StmtKind.AssignK)
             
             if t is not None:
                 # Crear nodo para la variable
-                var_node = newExpNode(ExpKind.IdK)
-                var_node.name = id_name
+                p = newExpNode(ExpKind.IdK)
+                p.name = id_name
                 
-                # Verificar si es un acceso a arreglo
-                if token == TokenType.LBRACKET:
-                    match(TokenType.LBRACKET)
-                    var_node.exp = ExpKind.SubscriptK
-                    var_node.child[0] = parse_expression()
-                    match(TokenType.RBRACKET)
+                t.child[0] = p  # Variable
                 
-                # Asignar la variable como primer hijo de la asignación
-                t.child[0] = var_node
-                
-                # Parsear la parte derecha de la asignación
                 match(TokenType.ASSIGN)
-                t.child[1] = parse_expression()
+                t.child[1] = parse_expression()  # Valor
             
             return t
-        else:
-            # Es una variable en una expresión simple
-            # Retroceder (lo que no podemos hacer directamente)
-            # En su lugar, crear un nodo para la variable y continuar
-            t = newExpNode(ExpKind.IdK)
-            t.name = id_name
             
-            # Verificar si es un acceso a arreglo
-            if token == TokenType.LBRACKET:
-                match(TokenType.LBRACKET)
-                t.exp = ExpKind.SubscriptK
-                t.child[0] = parse_expression()
-                match(TokenType.RBRACKET)
-            elif token == TokenType.LPAREN:
-                # Es una llamada a función
-                t = newExpNode(ExpKind.CallK)
+        # Comprobar si es una llamada a función
+        elif token == TokenType.LPAREN:
+            t = newExpNode(ExpKind.CallK)
+            
+            if t is not None:
                 t.name = id_name
                 
                 match(TokenType.LPAREN)
-                
-                # Parsear argumentos
                 t.child[0] = parse_args()
-                
                 match(TokenType.RPAREN)
             
-            # Continuar con el resto de la expresión simple
-            return parse_simple_expression_tail(t)
+            return t
+            
+        else:
+            # Es un identificador simple como parte de una expresión
+            t = newExpNode(ExpKind.IdK)
+            
+            if t is not None:
+                t.name = id_name
+            
+            # Devolver el identificador y continuar con la expresión simple
+            ungetToken()
+            return parse_simple_expression()
     
-    # No es una asignación, es una expresión simple
+    # Si no es una asignación, es una expresión simple
     return parse_simple_expression()
 
 def parse_var():
@@ -1100,7 +756,7 @@ def parse_var():
     var → ID | ID [ expression ]
     
     Returns:
-        Árbol sintáctico de la variable
+        Nodo de variable
     """
     global token, tokenString
     
@@ -1135,37 +791,26 @@ def parse_simple_expression():
     """
     global token
     
+    # Parseamos la primera expresión aditiva
     t = parse_additive_expression()
     
-    return parse_simple_expression_tail(t)
-
-def parse_simple_expression_tail(left):
-    """
-    Parsea la cola de una expresión simple
-    
-    Args:
-        left: Parte izquierda de la expresión
-        
-    Returns:
-        Árbol sintáctico de la expresión simple
-    """
-    global token
-    
-    # Verificar si hay un operador de comparación
+    # Verificamos si hay un operador relacional
     if token in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
-        t = newExpNode(ExpKind.OpK)
+        # Creamos el nodo para el operador
+        p = newExpNode(ExpKind.OpK)
         
-        if t is not None:
-            t.child[0] = left
-            t.op = token
+        if p is not None:
+            p.child[0] = t
+            p.op = token
             
             match(token)
             
-            t.child[1] = parse_additive_expression()
-        
-        return t
+            # Parseamos la segunda expresión aditiva
+            p.child[1] = parse_additive_expression()
+            
+            return p
     
-    return left
+    return t
 
 def parse_additive_expression():
     """
@@ -1177,9 +822,12 @@ def parse_additive_expression():
     """
     global token
     
+    # Parseamos el primer término
     t = parse_term()
     
+    # Ciclo para manejar operadores de suma/resta
     while token in [TokenType.PLUS, TokenType.MINUS]:
+        # Creamos el nodo para el operador
         p = newExpNode(ExpKind.OpK)
         
         if p is not None:
@@ -1188,8 +836,10 @@ def parse_additive_expression():
             
             match(token)
             
+            # Parseamos el siguiente término
             p.child[1] = parse_term()
             
+            # Actualizamos el nodo principal
             t = p
     
     return t
@@ -1204,9 +854,12 @@ def parse_term():
     """
     global token
     
+    # Parseamos el primer factor
     t = parse_factor()
     
+    # Ciclo para manejar operadores de multiplicación/división
     while token in [TokenType.TIMES, TokenType.DIVIDE]:
+        # Creamos el nodo para el operador
         p = newExpNode(ExpKind.OpK)
         
         if p is not None:
@@ -1215,8 +868,10 @@ def parse_term():
             
             match(token)
             
+            # Parseamos el siguiente factor
             p.child[1] = parse_factor()
             
+            # Actualizamos el nodo principal
             t = p
     
     return t
@@ -1234,43 +889,88 @@ def parse_factor():
     t = None
     
     if token == TokenType.NUM:
+        # Caso de constante numérica
         t = newExpNode(ExpKind.ConstK)
         
         if t is not None:
             t.val = int(tokenString)
         
         match(TokenType.NUM)
+        
+    elif token == TokenType.LPAREN:
+        # Caso de expresión entre paréntesis
+        match(TokenType.LPAREN)
+        t = parse_expression()
+        match(TokenType.RPAREN)
+        
     elif token == TokenType.ID:
+        # Puede ser un identificador simple, un acceso a arreglo o una llamada a función
         id_name = tokenString
+        
         match(TokenType.ID)
         
+        # Comprobar si es una llamada a función
         if token == TokenType.LPAREN:
-            # Es una llamada a función
             t = newExpNode(ExpKind.CallK)
-            t.name = id_name
             
-            match(TokenType.LPAREN)
-            t.child[0] = parse_args()
-            match(TokenType.RPAREN)
-        else:
-            # Es una variable
-            t = newExpNode(ExpKind.IdK)
-            t.name = id_name
+            if t is not None:
+                t.name = id_name
+                
+                match(TokenType.LPAREN)
+                t.child[0] = parse_args()
+                match(TokenType.RPAREN)
             
-            # Verificar si es un acceso a arreglo
-            if token == TokenType.LBRACKET:
-                t.exp = ExpKind.SubscriptK
+        # Comprobar si es un acceso a arreglo
+        elif token == TokenType.LBRACKET:
+            t = newExpNode(ExpKind.SubscriptK)
+            
+            if t is not None:
+                t.name = id_name
                 
                 match(TokenType.LBRACKET)
                 t.child[0] = parse_expression()
                 match(TokenType.RBRACKET)
-    elif token == TokenType.LPAREN:
-        match(TokenType.LPAREN)
-        t = parse_expression()
-        match(TokenType.RPAREN)
+            
+        else:
+            # Es un identificador simple
+            t = newExpNode(ExpKind.IdK)
+            
+            if t is not None:
+                t.name = id_name
+            
     else:
-        syntaxError("Token inesperado")
-        token, tokenString, lineno = getToken(False)
+        syntaxError(f"Token inesperado: {tokenString}")
+    
+    return t
+
+def parse_call():
+    """
+    Parsea una llamada a función según la gramática de C-:
+    call → ID ( args )
+    
+    Returns:
+        Nodo de llamada a función
+    """
+    global token, tokenString
+    
+    # Verificar que el token actual sea un identificador
+    if token != TokenType.ID:
+        syntaxError("Se esperaba un identificador de función")
+        return None
+    
+    # Crear nodo para la llamada
+    t = newExpNode(ExpKind.CallK)
+    
+    if t is not None:
+        t.name = tokenString
+        
+        match(TokenType.ID)
+        match(TokenType.LPAREN)
+        
+        # Parsear argumentos
+        t.child[0] = parse_args()
+        
+        match(TokenType.RPAREN)
     
     return t
 
@@ -1319,12 +1019,10 @@ def parse_arg_list():
     
     return t
 
-#
-# FUNCIÓN PARA IMPRIMIR EL ÁRBOL SINTÁCTICO
-#
-
 def printSpaces():
-    """Imprime espacios para la indentación del árbol"""
+    """
+    Imprime espacios para la indentación del árbol
+    """
     global indentno
     print("  " * indentno, end="")
 
@@ -1337,35 +1035,37 @@ def printTree(tree):
     """
     global indentno
     
-    indentno += 2
+    indentno += 1
     
     while tree is not None:
         printSpaces()
         
         if tree.nodekind == NodeKind.StmtK:
             if tree.stmt == StmtKind.IfK:
-                print(f"If")
+                print("If")
             elif tree.stmt == StmtKind.WhileK:
-                print(f"While")
+                print("While")
             elif tree.stmt == StmtKind.AssignK:
-                print(f"Assign to: {tree.child[0].name}")
+                print("Assign to:")
             elif tree.stmt == StmtKind.ReturnK:
-                print(f"Return")
+                print("Return")
             elif tree.stmt == StmtKind.CompoundK:
-                print(f"Compound")
+                print("Compound")
             else:
-                print(f"Unknown ExpNode kind")
+                print("Unknown ExpNode kind")
         elif tree.nodekind == NodeKind.ExpK:
             if tree.exp == ExpKind.OpK:
-                print(f"Op: {tree.op}")
+                print(f"Op: {tree.op.name}")
             elif tree.exp == ExpKind.ConstK:
                 print(f"Const: {tree.val}")
             elif tree.exp == ExpKind.IdK:
                 print(f"Id: {tree.name}")
             elif tree.exp == ExpKind.CallK:
                 print(f"Call: {tree.name}")
+            elif tree.exp == ExpKind.SubscriptK:
+                print(f"Subscript: {tree.name}")
             else:
-                print(f"Unknown ExpNode kind")
+                print("Unknown ExpNode kind")
         elif tree.nodekind == NodeKind.DeclK:
             if tree.decl == DeclKind.VarK:
                 if tree.is_array:
@@ -1374,59 +1074,72 @@ def printTree(tree):
                     print(f"Var Declaration: {tree.name}")
             elif tree.decl == DeclKind.FunK:
                 print(f"Function Declaration: {tree.name}")
-                # Imprimir parámetros
-                if tree.params:
-                    printSpaces()
-                    print("Parameters:")
-                    for param in tree.params:
-                        printSpaces()
-                        print(f"  {param.name}{' []' if param.is_array else ''}")
             elif tree.decl == DeclKind.ParamK:
                 if tree.is_array:
                     print(f"Parameter: {tree.name}[]")
                 else:
                     print(f"Parameter: {tree.name}")
             else:
-                print(f"Unknown DeclNode kind")
+                print("Unknown DeclNode kind")
         else:
-            print(f"Unknown node kind")
+            print("Unknown node kind")
         
         # Imprimir cada hijo del nodo actual
         for i in range(MAXCHILDREN):
             if tree.child[i] is not None:
                 printTree(tree.child[i])
         
-        # Moverse al siguiente hermano para una recorrido en anchura
+        # Moverse al siguiente hermano
         tree = tree.sibling
     
-    indentno -= 2  # Reducir la indentación
+    indentno -= 1
 
-# Función principal para ejecutar el parser
-if __name__ == "__main__":
-    # Abrir y leer el archivo fuente
-    filename = input("Ingrese el nombre del archivo a compilar (default: sample.c-): ") or "sample.c-"
-    try:
-        with open(filename, 'r') as f:
-            programa_str = f.read()     # lee todo el archivo a compilar
-            prog_long = len(programa_str)   # longitud original del programa
-            programa_str = programa_str + '$'   # agregar un caracter $ que represente EOF
-            pos = 0       # posición del caracter actual del string
-            
-            # Inicializar variables globales
-            print(f"\nInicializando compilador con archivo: {filename}, longitud: {prog_long}")
-            globales(programa_str, pos, prog_long)
-            
-            # Parsear el programa
-            print("\nAnálisis sintáctico en proceso...")
-            print("--------------------------------")
-            
-            AST = parser(True)  # True para imprimir el AST
-            
-            print("\nAnálisis sintáctico completado.")
-    except FileNotFoundError:
-        print(f"Error: No se pudo encontrar el archivo '{filename}'")
-    except Exception as e:
-        print(f"Error inesperado: {e}")
-        # Imprimir más detalles sobre el error
-        import traceback
-        traceback.print_exc()
+def recover_from_error(sync_tokens=None):
+    """
+    Intenta recuperarse de un error de sintaxis avanzando hasta un token de sincronización
+    
+    Args:
+        sync_tokens: Lista opcional de tokens de sincronización
+    """
+    global token, tokenString, lineno
+    
+    # Tokens de sincronización predeterminados si no se proporcionan
+    if sync_tokens is None:
+        sync_tokens = [
+            TokenType.SEMI,      # Fin de sentencia
+            TokenType.RBRACE,    # Fin de bloque
+            TokenType.ELSE,      # Inicio de else
+            TokenType.IF,        # Inicio de if
+            TokenType.WHILE,     # Inicio de while
+            TokenType.RETURN,    # Inicio de return
+            TokenType.INT,       # Inicio de declaración
+            TokenType.VOID       # Inicio de declaración
+        ]
+    
+    print("   Intentando recuperarse del error...")
+    
+    # Avanzar hasta encontrar un token de sincronización
+    while token not in sync_tokens and token != TokenType.ENDFILE:
+        token, tokenString, lineno = getToken(False)
+    
+    if token != TokenType.ENDFILE:
+        print(f"   Recuperación exitosa en token: {token.name}")
+    else:
+        print("   No se pudo recuperar - fin del archivo")
+
+def match(expected):
+    """
+    Verifica si el token actual coincide con el esperado y avanza al siguiente
+    
+    Args:
+        expected: Token esperado
+    """
+    global token, tokenString, lineno
+    
+    if token == expected:
+        token, tokenString, lineno = getToken(False)
+    else:
+        expected_name = expected.name if hasattr(expected, 'name') else str(expected)
+        syntaxError(f"Se esperaba '{expected_name}', pero se encontró '{tokenString}'")
+        # Intentar recuperarse del error
+        recover_from_error()

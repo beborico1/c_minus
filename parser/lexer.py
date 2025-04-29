@@ -1,8 +1,4 @@
-"""
-Analizador léxico para el lenguaje C-
-Implementa un autómata finito determinista para reconocer tokens
-"""
-from global_types import *
+from globalTypes import *
 
 # Variables globales
 programa = ""    # Contiene el string completo del programa
@@ -11,7 +7,7 @@ progLong = 0     # Longitud original del programa
 lineno = 1       # Número de línea actual
 linepos = 0      # Posición en la línea actual
 
-# Variable para guardar el estado de la posición de un token ya leído
+# Variable para guardar el estado para lookahead
 saved_token = None
 saved_tokenString = None
 saved_lineno = None
@@ -48,7 +44,9 @@ def getChar():
     return '$'  # Fin de archivo
 
 def ungetChar():
-    """Retrocede un caracter"""
+    """
+    Retrocede un caracter
+    """
     global posicion, linepos
     if posicion > 0:
         posicion -= 1
@@ -84,6 +82,16 @@ def getLine():
     
     return programa[start:end]
 
+def getLinePosition():
+    """
+    Obtiene la posición actual en la línea
+    
+    Returns:
+        Posición en la línea actual
+    """
+    global linepos
+    return linepos
+
 def printError(message, errorPos=None):
     """
     Imprime un mensaje de error con la línea y la posición
@@ -100,6 +108,37 @@ def printError(message, errorPos=None):
     print(f"Línea {lineno}: {message}")
     print(line)
     print(" " * pos + "^")
+
+def saveToken():
+    """
+    Guarda el token actual para lookahead
+    """
+    global token, tokenString, lineno, saved_token, saved_tokenString, saved_lineno
+    
+    saved_token = token
+    saved_tokenString = tokenString
+    saved_lineno = lineno
+
+def ungetToken():
+    """
+    Restaura el token previamente guardado
+    
+    Returns:
+        True si se restauró un token, False en caso contrario
+    """
+    global token, tokenString, lineno, saved_token, saved_tokenString, saved_lineno
+    
+    if saved_token is not None:
+        token = saved_token
+        tokenString = saved_tokenString
+        lineno = saved_lineno
+        
+        # Limpiar el estado guardado
+        saved_token = None
+        saved_tokenString = None
+        saved_lineno = None
+        return True
+    return False
 
 def reservedLookup(tokenString):
     """
@@ -124,7 +163,7 @@ def getToken(imprime=True):
     Returns:
         Tupla (token, tokenString, lineno)
     """
-    global lineno, linepos, saved_token, saved_tokenString, saved_lineno
+    global lineno, linepos, token, tokenString, saved_token, saved_tokenString, saved_lineno
     
     # Verificar si hay un token guardado
     if saved_token is not None:
@@ -289,8 +328,11 @@ def getToken(imprime=True):
     if tokenType == TokenType.ID:
         tokenType = reservedLookup(tokenString)
     
+    # Establecer variables globales
+    token = tokenType
+    
     # Imprimir el token si se requiere
-    if imprime:
+    if imprime and tokenType != TokenType.ERROR:
         print(f"{lineno:4d}: {tokenType.name:10s} = {tokenString}")
     
     return tokenType, tokenString, lineno

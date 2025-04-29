@@ -1,9 +1,6 @@
-"""
-Tipos globales para el analizador léxico y sintáctico del lenguaje C-
-"""
 from enum import Enum
 
-# TokenType - Definición de todos los tokens del lenguaje C-
+# TokenType - Definición de todos los tokens del lenguaje C-minus
 class TokenType(Enum):
     # Token especial para el fin de archivo
     ENDFILE = 300
@@ -19,24 +16,24 @@ class TokenType(Enum):
     
     # Tokens multicaracter
     ID = 310 # identificadores
-    NUM = 311 # números
+    NUM = 311 # numeros
     
     # Símbolos especiales
     PLUS = '+' # suma
     MINUS = '-' # resta
-    TIMES = '*' # multiplicación
-    DIVIDE = '/' # división
+    TIMES = '*' # multiplicacion
+    DIVIDE = '/' # division
     LT = '<' # menor que
     LTE = '<=' # menor o igual que
     GT = '>' # mayor que
     GTE = '>=' # mayor o igual que
     EQ = '==' # igual a
     NEQ = '!=' # no igual a
-    ASSIGN = '=' # asignación
+    ASSIGN = '=' # asignacion
     SEMI = ';' # punto y coma
     COMMA = ',' # coma
-    LPAREN = '(' # paréntesis izquierdo
-    RPAREN = ')' # paréntesis derecho
+    LPAREN = '(' # parentesis izquierdo
+    RPAREN = ')' # parentesis derecho
     LBRACKET = '[' # corchete izquierdo
     RBRACKET = ']' # corchete derecho
     LBRACE = '{' # llave izquierda
@@ -60,7 +57,7 @@ class NodeKind(Enum):
     ExpK = 1
     DeclK = 2
 
-# Tipos de sentencias para C-
+# Tipos de sentencias para C-minus
 class StmtKind(Enum):
     IfK = 0
     WhileK = 1
@@ -68,7 +65,7 @@ class StmtKind(Enum):
     ReturnK = 3
     CompoundK = 4
 
-# Tipos de expresiones para C-
+# Tipos de expresiones para C-minus
 class ExpKind(Enum):
     OpK = 0
     ConstK = 1
@@ -76,7 +73,7 @@ class ExpKind(Enum):
     CallK = 3
     SubscriptK = 4  # Para indexación de arreglos
 
-# Tipos de declaraciones para C-
+# Tipos de declaraciones para C-minus
 class DeclKind(Enum):
     VarK = 0
     FunK = 1
