@@ -1,0 +1,19 @@
+int suma(int a, int b) {
+    return a + b;
+}
+
+int fibonacci(int n) {
+    if (n <= 1)
+        return n;
+    else
+        return fibonacci(n-1) + fibonacci(n-2);
+}
+
+void main(void) {
+    int x; int y; int z;
+    
+    x = 5;
+    y = 7;
+    z = suma(x, y);
+    z = fibonacci(8);
+}

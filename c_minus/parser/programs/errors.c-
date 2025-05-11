@@ -1,0 +1,7 @@
+void main(void) {
+    int x;
+    
+    /* Error: Falta un paréntesis */
+    if (x > 5 
+        x = 10;
+}
