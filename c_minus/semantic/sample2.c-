@@ -1,0 +1,22 @@
+/* Un programa para realizar el algoritmo
+   de Euclides para calcular mcd. */
+
+int gcd (int u, int v)
+{ 
+  if (v < 1)
+    return u;
+  else {
+    int temp;
+    temp = u - (u/v)*v;
+    return gcd(v, temp);
+  }
+}
+
+void main(void)
+{ 
+  int x; 
+  int y;
+  x = input(); 
+  y = input();
+  output(gcd(x,y));
+}
