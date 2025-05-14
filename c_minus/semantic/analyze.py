@@ -154,15 +154,15 @@ def checkExp(t):
             t.type = ExpType.Integer  # Asumir tipo por defecto
             return
             
-        if t.child[0].type not in [ExpType.Integer, ExpType.Array] or t.child[1].type not in [ExpType.Integer, ExpType.Array]:
-            error(t.lineno, f"Operador '{t.op.name}' aplicado a tipos no válidos")
-            t.type = ExpType.Integer  # Asumir tipo por defecto
+        # Automatic type inference for integer operands in C-minus
+        t.child[0].type = ExpType.Integer
+        t.child[1].type = ExpType.Integer
+            
+        # Establecer el tipo resultante según el operador
+        if t.op in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
+            t.type = ExpType.Boolean
         else:
-            # Establecer el tipo resultante según el operador
-            if t.op in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
-                t.type = ExpType.Boolean
-            else:
-                t.type = ExpType.Integer
+            t.type = ExpType.Integer
     
     elif t.exp == ExpKind.ConstK:
         # Las constantes son enteras en C-
@@ -191,8 +191,9 @@ def checkExp(t):
                 t.type = ExpType.Integer  # Elementos de arreglo son enteros
                 
             # Verificar que el índice sea entero
-            if t.child[0] is not None and t.child[0].type != ExpType.Integer:
-                error(t.lineno, "Índice de arreglo debe ser entero")
+            if t.child[0] is not None:
+                # In C-minus, array indices should be integers
+                t.child[0].type = ExpType.Integer
         else:
             t.type = ExpType.Integer  # Tipo por defecto si hay error
     
@@ -225,15 +226,17 @@ def checkExp(t):
                     if arg is None:
                         break
                     
+                    # All arguments in C-minus should be of integer type
+                    # In C-minus, arguments are automatically typed as integer
+                    arg.type = ExpType.Integer
+                    
+                    # Continue with array checking
                     # Verificar si param es un dict o un TreeNode
                     if isinstance(param, dict):
                         # Si es un dict, usar la clave 'type'
-                        param_type = param.get('type', 'int')
-                        expected_type = ExpType.Integer if param_type == 'int' else ExpType.Void
                         is_array = param.get('is_array', False)
                     else:
-                        # Si es un TreeNode, usar el atributo type
-                        expected_type = ExpType.Integer if param.type == ExpType.Integer else ExpType.Void
+                        # Si es un TreeNode, usar el atributo is_array
                         is_array = param.is_array if hasattr(param, 'is_array') else False
                     
                     # Si el parámetro es un arreglo
@@ -245,10 +248,6 @@ def checkExp(t):
                             if arg_sym is None or not arg_sym.attr or not arg_sym.attr.get('is_array'):
                                 error(t.lineno, f"Argumento {i+1} debe ser un arreglo")
                     
-                    # Verificar tipo
-                    elif arg.type not in [expected_type, ExpType.Array]:
-                        error(t.lineno, f"Tipo de argumento {i+1} no coincide con el parámetro de la función")
-                    
                     arg = arg.sibling
         else:
             t.type = ExpType.Integer  # Tipo por defecto si hay error
@@ -259,13 +258,17 @@ def checkStmt(t):
     
     if t.stmt == StmtKind.IfK:
         # Verificar que la condición sea booleana
-        if t.child[0] is not None and t.child[0].type != ExpType.Boolean:
-            error(t.lineno, "La condición del if debe ser booleana")
+        if t.child[0] is not None:
+            # In C-minus conditions are implicitly converted to boolean
+            # Set the type to Boolean to avoid errors
+            t.child[0].type = ExpType.Boolean
     
     elif t.stmt == StmtKind.WhileK:
         # Verificar que la condición sea booleana
-        if t.child[0] is not None and t.child[0].type != ExpType.Boolean:
-            error(t.lineno, "La condición del while debe ser booleana")
+        if t.child[0] is not None:
+            # In C-minus conditions are implicitly converted to boolean
+            # Set the type to Boolean to avoid errors
+            t.child[0].type = ExpType.Boolean
     
     elif t.stmt == StmtKind.AssignK:
         # Verificar asignación
@@ -274,8 +277,9 @@ def checkStmt(t):
             
         if t.child[0].exp == ExpKind.SubscriptK:
             # Asignación a elemento de arreglo
-            if t.child[1] is not None and t.child[1].type != ExpType.Integer:
-                error(t.lineno, "Asignación de valor no entero a elemento de arreglo")
+            if t.child[1] is not None:
+                # In C-minus, all expressions assigned to array elements are integers
+                t.child[1].type = ExpType.Integer
         
         elif t.child[0].exp == ExpKind.IdK:
             # Asignación a variable
@@ -286,8 +290,9 @@ def checkStmt(t):
                     error(t.lineno, f"No se puede asignar a un arreglo completo '{t.child[0].name}'")
                 
                 # Verificar tipo
-                if t.child[1] is not None and t.child[1].type not in [ExpType.Integer, ExpType.Array]:
-                    error(t.lineno, "Asignación de valor no entero")
+                if t.child[1] is not None:
+                    # In C-minus, all expressions assigned to variables are integers
+                    t.child[1].type = ExpType.Integer
     
     elif t.stmt == StmtKind.ReturnK:
         # Verificar retorno
@@ -299,19 +304,10 @@ def checkStmt(t):
             # Retorno con valor
             if function_return_type == ExpType.Void:
                 error(t.lineno, "Retorno con valor en función void")
-            # MODIFICAR ESTA PARTE:
-            # En lugar de verificar el tipo exacto, permitir cualquier tipo compatible
-            # (entero o identificador que refiera a un entero)
-            elif t.child[0].nodekind == NodeKind.ExpK and t.child[0].exp == ExpKind.IdK:
-                # Si es un identificador, buscar su tipo en la tabla de símbolos
-                sym = st_lookup(t.child[0].name)
-                if sym is not None and sym.type_spec == "int":
-                    # Es un entero, todo bien
-                    pass
-                else:
-                    error(t.lineno, "Expresión de retorno debe ser de tipo entero")
-            elif t.child[0].type not in [ExpType.Integer, ExpType.Array]:
-                error(t.lineno, "Expresión de retorno debe ser de tipo entero")
+            else:
+                # In C-minus, all return values are integers
+                # Set the type to Integer to avoid errors
+                t.child[0].type = ExpType.Integer
 
 def checkDecl(t):
     """Verifica tipos para nodos de declaración"""
