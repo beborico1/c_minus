@@ -1,6 +1,6 @@
 /* Programa simple que debería pasar el análisis semántico */
 
-int simple_function(int x)
+int simplefunction(int x)
 {
   return x;
 }
@@ -9,5 +9,5 @@ void main(void)
 {
   int z;
   z = input();
-  output(simple_function(z));
+  output(simplefunction(z));
 }
