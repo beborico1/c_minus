@@ -3,14 +3,14 @@ from Parser import recibeParser, parse
 from semantica import *
 import sys
 
-# Get filename from command line argument
+# Obtener nombre de archivo desde el argumento de la línea de comandos
 if len(sys.argv) > 1:
     fileName = sys.argv[1]
-    # Remove .c- extension if provided
+    # Eliminar la extensión .c- si está presente
     if fileName.endswith('.c-'):
         fileName = fileName[:-3]
 else:
-    fileName = "sample"  # Default filename
+    fileName = "sample"  # Nombre de archivo por defecto
 
 try:
     f = open(fileName + '.c-', 'r')

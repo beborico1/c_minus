@@ -8,89 +8,85 @@ lineno = 1 # Numero de linea actual
 linepos = 0 # Posicion en la linea actual
 
 # Variable para guardar el estado para lookahead
-saved_token = None
-saved_tokenString = None
-saved_lineno = None
+saved_state = None
 
 def globales(prog, pos, long):
     """
-    Funcion para recibir variables globales desde el programa principal
+    Recibe las variables globales del programa principal
     
     Args:
-        prog: String con el programa completo
+        prog: Programa completo
         pos: Posicion inicial
         long: Longitud del programa
     """
-    global programa, posicion, progLong, lineno, linepos
+    global programa, posicion, progLong
     programa = prog
     posicion = pos
     progLong = long
-    lineno = 1
-    linepos = 0
-
+    
 def getChar():
     """
     Obtiene el siguiente caracter del programa
     
     Returns:
-        Siguiente caracter del programa
+        Siguiente caracter o EOF
     """
-    global posicion, linepos
-    if posicion < len(programa):
-        c = programa[posicion]
-        posicion += 1
-        linepos += 1
-        return c
-    return '$' # Fin de archivo
+    global posicion, progLong, lineno, linepos
+    
+    if posicion >= progLong:
+        return '$' # Fin de archivo
+    
+    # Obtener el siguiente caracter
+    c = programa[posicion]
+    posicion += 1
+    linepos += 1
+    
+    # Incrementar contador de linea si encontramos '\n'
+    if c == '\n':
+        lineno += 1
+        linepos = 0
+    
+    return c
 
 def ungetChar():
     """
-    Retrocede un caracter
+    Retrocede un caracter en el programa
     """
-    global posicion, linepos
+    global posicion, lineno, linepos
+    
     if posicion > 0:
         posicion -= 1
-        linepos -= 1
-
-def peek():
-    """
-    Mira el siguiente caracter sin avanzar
-    
-    Returns:
-        Siguiente caracter del programa
-    """
-    if posicion < len(programa):
-        return programa[posicion]
-    return '$'
+        
+        # Si retrocedemos sobre un salto de linea, decrementar linea
+        if programa[posicion] == '\n':
+            lineno -= 1
+            # Calcular la posicion en la linea anterior
+            linepos = 0
+            pos = posicion - 1
+            while pos >= 0 and programa[pos] != '\n':
+                linepos += 1
+                pos -= 1
+        else:
+            linepos -= 1
 
 def getLine():
     """
-    Obtiene la linea actual completa
+    Obtiene la linea actual completa para mostrar errores
     
     Returns:
-        String con la linea actual
+        Linea actual como string
     """
-    global programa, posicion, linepos
+    global programa, posicion, progLong
     
     # Encontrar el inicio de la linea actual
-    start = posicion - linepos
+    inicio = posicion - linepos
     
     # Encontrar el final de la linea
-    end = start
-    while end < len(programa) and programa[end] != '\n':
-        end += 1
+    fin = inicio
+    while fin < progLong and programa[fin] != '\n':
+        fin += 1
     
-    return programa[start:end]
-
-def getLinePosition():
-    """
-    Obtiene la posicion actual en la linea
-    
-    Returns:
-        Posicion en la linea actual
-    """
-    global linepos
-    return linepos
+    return programa[inicio:fin]
 
 def printError(message, errorPos=None):
     """
@@ -100,57 +96,46 @@ def printError(message, errorPos=None):
         message: Mensaje de error
         errorPos: Posicion del error en la linea
     """
-    global lineno, linepos
+    global linepos, lineno
     
+    # Obtener la linea actual
     line = getLine()
     pos = errorPos if errorPos is not None else linepos - 1
     
-    print(f"Linea {lineno}: {message}")
+    print(f"Línea {lineno}: {message}")
     print(line)
     print(" " * pos + "^")
 
-def saveToken():
+def save_state():
     """
-    Guarda el token actual para lookahead
+    Guarda el estado actual del analizador para lookahead
     """
-    global token, tokenString, lineno, saved_token, saved_tokenString, saved_lineno
-    
-    saved_token = token
-    saved_tokenString = tokenString
-    saved_lineno = lineno
+    global saved_state, posicion, linepos, lineno
+    saved_state = (posicion, linepos, lineno)
 
-def ungetToken():
+def restore_state():
     """
-    Restaura el token previamente guardado
-    
-    Returns:
-        True si se restauro un token, False en caso contrario
+    Restaura el estado guardado previamente
     """
-    global token, tokenString, lineno, saved_token, saved_tokenString, saved_lineno
-    
-    if saved_token is not None:
-        token = saved_token
-        tokenString = saved_tokenString
-        lineno = saved_lineno
-        
+    global saved_state, posicion, linepos, lineno
+    if saved_state is not None:
+        posicion, linepos, lineno = saved_state
         # Limpiar el estado guardado
-        saved_token = None
-        saved_tokenString = None
-        saved_lineno = None
-        return True
-    return False
+        saved_state = None
 
-def reservedLookup(tokenString):
+def reserved_lookup(word):
     """
-    Busca si un identificador es palabra reservada
+    Busca una palabra en el diccionario de palabras reservadas
     
     Args:
-        tokenString: String a buscar
+        word: Palabra a buscar
         
     Returns:
-        TokenType correspondiente a la palabra reservada o TokenType.ID
+        Token correspondiente a la palabra reservada o ID si no es reservada
     """
-    return RESERVED_WORDS.get(tokenString, TokenType.ID)
+    if word in RESERVED_WORDS:
+        return RESERVED_WORDS[word]
+    return TokenType.ID
 
 def getToken(imprime=True):
     """
@@ -160,9 +145,9 @@ def getToken(imprime=True):
         imprime: Indica si se debe imprimir el token
         
     Returns:
-        Tupla (token, tokenString, lineno)
+        Una tupla (token, tokenString, lineno)
     """
-    global token, tokenString, lineno, linepos, posicion
+    global lineno, linepos
     
     # Reiniciar tokenString
     tokenString = ""
@@ -171,6 +156,7 @@ def getToken(imprime=True):
     state = StateType.START
     
     # Bandera para indicar si se guarda en tokenString
+    save = True
     
     # Loop principal del automata
     while state != StateType.DONE:
@@ -178,10 +164,60 @@ def getToken(imprime=True):
         save = True
         
         if state == StateType.START:
-            if c.isdigit():
-                state = StateType.INNUM
-            elif c.isalpha():
+            if c.isalpha():
                 state = StateType.INID
+            elif c.isdigit():
+                state = StateType.INNUM
+            elif c == ' ' or c == '\t' or c == '\n':
+                save = False
+            elif c == '&':
+                save = False
+                c2 = getChar()
+                if c2 == '&':
+                    tokenString = '&&'
+                    state = StateType.DONE
+                    tokenType = TokenType.AND
+                else:
+                    ungetChar()
+                    tokenType = TokenType.ERROR
+                    printError("Se esperaba '&' después de '&'")
+                    state = StateType.DONE
+            elif c == '|':
+                save = False
+                c2 = getChar()
+                if c2 == '|':
+                    tokenString = '||'
+                    state = StateType.DONE
+                    tokenType = TokenType.OR
+                else:
+                    ungetChar()
+                    tokenType = TokenType.ERROR
+                    printError("Se esperaba '|' después de '|'")
+                    state = StateType.DONE
+            elif c == '*':
+                state = StateType.DONE
+                tokenType = TokenType.TIMES
+            elif c == '+':
+                state = StateType.DONE
+                tokenType = TokenType.PLUS
+            elif c == '-':
+                state = StateType.DONE
+                tokenType = TokenType.MINUS
+            elif c == '/':
+                save = False
+                c2 = getChar()
+                if c2 == '*':
+                    save = False
+                    state = StateType.INCOMMENT
+                else:
+                    ungetChar()
+                    state = StateType.DONE
+                    tokenType = TokenType.DIVIDE
+                    tokenString = '/'
+            elif c == '$': # EOF
+                save = False
+                state = StateType.DONE
+                tokenType = TokenType.ENDFILE
             elif c == '=':
                 state = StateType.INASSIGN
             elif c == '<':
@@ -190,82 +226,45 @@ def getToken(imprime=True):
                 state = StateType.INGT
             elif c == '!':
                 state = StateType.INNOT
-            elif c == '&':
-                nextChar = peek()
-                if nextChar == '&':
-                    save = True
-                    getChar() # Consume el segundo '&'
-                    state = StateType.DONE
-                    tokenType = TokenType.AND
-                else:
-                    state = StateType.DONE
-                    tokenType = TokenType.ERROR
-                    printError("Se esperaba '&' despues de '&'")
-            elif c == '|':
-                nextChar = peek()
-                if nextChar == '|':
-                    save = True
-                    getChar() # Consume el segundo '|'
-                    state = StateType.DONE
-                    tokenType = TokenType.OR
-                else:
-                    state = StateType.DONE
-                    tokenType = TokenType.ERROR
-                    printError("Se esperaba '|' despues de '|'")
-            elif c == '/':
-                nextChar = peek()
-                if nextChar == '*':
-                    save = False
-                    getChar() # Consume el '*'
-                    state = StateType.INCOMMENT
-                else:
-                    state = StateType.DONE
-                    tokenType = TokenType.DIVIDE
-            elif c in [' ', '\t', '\n', '\r']:
-                save = False
-                if c == '\n':
-                    lineno += 1
-                    linepos = 0
+            elif c == ';':
+                state = StateType.DONE
+                tokenType = TokenType.SEMI
+            elif c == ',':
+                state = StateType.DONE
+                tokenType = TokenType.COMMA
+            elif c == '(':
+                state = StateType.DONE
+                tokenType = TokenType.LPAREN
+            elif c == ')':
+                state = StateType.DONE
+                tokenType = TokenType.RPAREN
+            elif c == '[':
+                state = StateType.DONE
+                tokenType = TokenType.LBRACKET
+            elif c == ']':
+                state = StateType.DONE
+                tokenType = TokenType.RBRACKET
+            elif c == '{':
+                state = StateType.DONE
+                tokenType = TokenType.LBRACE
+            elif c == '}':
+                state = StateType.DONE
+                tokenType = TokenType.RBRACE
             else:
                 state = StateType.DONE
-                if c == '$': # EOF
-                    save = False
-                    tokenType = TokenType.ENDFILE
-                elif c == '+':
-                    tokenType = TokenType.PLUS
-                elif c == '-':
-                    tokenType = TokenType.MINUS
-                elif c == '*':
-                    tokenType = TokenType.TIMES
-                elif c == ';':
-                    tokenType = TokenType.SEMI
-                elif c == ',':
-                    tokenType = TokenType.COMMA
-                elif c == '(':
-                    tokenType = TokenType.LPAREN
-                elif c == ')':
-                    tokenType = TokenType.RPAREN
-                elif c == '[':
-                    tokenType = TokenType.LBRACKET
-                elif c == ']':
-                    tokenType = TokenType.RBRACKET
-                elif c == '{':
-                    tokenType = TokenType.LBRACE
-                elif c == '}':
-                    tokenType = TokenType.RBRACE
-                else:
-                    tokenType = TokenType.ERROR
-                    printError(f"Caracter ilegal: '{c}'")
-        
+                tokenType = TokenType.ERROR
+                printError(f"Carácter ilegal: '{c}'")
+                
         elif state == StateType.INCOMMENT:
             save = False
-            if c == '*' and peek() == '/':
-                getChar() # Consume el '/'
-                state = StateType.START
-            elif c == '\n':
-                lineno += 1
-                linepos = 0
+            if c == '*':
+                c2 = getChar() # Consume el '*'
+                if c2 == '/':
+                    state = StateType.START
+                else:
+                    ungetChar()
             elif c == '$': # EOF en medio de un comentario
+                save = False
                 state = StateType.DONE
                 tokenType = TokenType.ERROR
                 printError("Comentario sin cerrar")
@@ -278,53 +277,58 @@ def getToken(imprime=True):
                 tokenType = TokenType.NUM
         
         elif state == StateType.INID:
-            if not (c.isalpha() or c.isdigit()):
+            if not c.isalnum():
                 ungetChar()
                 save = False
                 state = StateType.DONE
                 tokenType = TokenType.ID
         
         elif state == StateType.INASSIGN:
-            state = StateType.DONE
             if c == '=':
+                state = StateType.DONE
                 tokenType = TokenType.EQ
             else:
                 ungetChar()
                 save = False
+                state = StateType.DONE
                 tokenType = TokenType.ASSIGN
         
         elif state == StateType.INLT:
-            state = StateType.DONE
             if c == '=':
+                state = StateType.DONE
                 tokenType = TokenType.LTE
             else:
                 ungetChar()
                 save = False
+                state = StateType.DONE
                 tokenType = TokenType.LT
         
         elif state == StateType.INGT:
-            state = StateType.DONE
             if c == '=':
+                state = StateType.DONE
                 tokenType = TokenType.GTE
             else:
                 ungetChar()
                 save = False
+                state = StateType.DONE
                 tokenType = TokenType.GT
         
         elif state == StateType.INNOT:
-            state = StateType.DONE
             if c == '=':
+                state = StateType.DONE
                 tokenType = TokenType.NEQ
             else:
                 ungetChar()
                 save = False
+                state = StateType.DONE
                 tokenType = TokenType.ERROR
-                printError("Se esperaba '=' despues de '!'")
-        
+                printError("Se esperaba '=' después de '!'")
+                
         else: # Nunca deberia ocurrir
+            save = False
             state = StateType.DONE
             tokenType = TokenType.ERROR
-            printError("Error en el analizador lexico")
+            printError("Error en el analizador léxico")
         
         # Guardar el caracter en tokenString si es necesario
         if save and c != '$':
@@ -332,13 +336,13 @@ def getToken(imprime=True):
     
     # Si es un ID, verificar si es una palabra reservada
     if tokenType == TokenType.ID:
-        tokenType = reservedLookup(tokenString)
+        tokenType = reserved_lookup(tokenString)
     
     # Establecer variables globales
-    token = tokenType
+    current_token = tokenType
     
     # Imprimir el token si se requiere
     if imprime and tokenType != TokenType.ERROR:
         print(f"{lineno:4d}: {tokenType.name:10s} = {tokenString}")
     
-    return (token, tokenString, lineno)
+    return (tokenType, tokenString, lineno)

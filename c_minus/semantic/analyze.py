@@ -154,7 +154,7 @@ def checkExp(t):
             t.type = ExpType.Integer  # Asumir tipo por defecto
             return
             
-        # Automatic type inference for integer operands in C-minus
+        # Inferencia automática de tipo para operandos enteros en C-minus
         t.child[0].type = ExpType.Integer
         t.child[1].type = ExpType.Integer
             
@@ -192,7 +192,7 @@ def checkExp(t):
                 
             # Verificar que el índice sea entero
             if t.child[0] is not None:
-                # In C-minus, array indices should be integers
+                # En C-minus, los índices de arreglos deben ser enteros
                 t.child[0].type = ExpType.Integer
         else:
             t.type = ExpType.Integer  # Tipo por defecto si hay error
@@ -226,11 +226,11 @@ def checkExp(t):
                     if arg is None:
                         break
                     
-                    # All arguments in C-minus should be of integer type
-                    # In C-minus, arguments are automatically typed as integer
+                    # Todos los argumentos en C-minus deben ser de tipo entero
+                    # En C-minus, los argumentos se tipan automáticamente como enteros
                     arg.type = ExpType.Integer
                     
-                    # Continue with array checking
+                    # Continuar con la verificación de arreglos
                     # Verificar si param es un dict o un TreeNode
                     if isinstance(param, dict):
                         # Si es un dict, usar la clave 'type'
@@ -259,15 +259,15 @@ def checkStmt(t):
     if t.stmt == StmtKind.IfK:
         # Verificar que la condición sea booleana
         if t.child[0] is not None:
-            # In C-minus conditions are implicitly converted to boolean
-            # Set the type to Boolean to avoid errors
+            # En C-minus las condiciones se convierten implícitamente a booleano
+            # Establecer el tipo a Boolean para evitar errores
             t.child[0].type = ExpType.Boolean
     
     elif t.stmt == StmtKind.WhileK:
         # Verificar que la condición sea booleana
         if t.child[0] is not None:
-            # In C-minus conditions are implicitly converted to boolean
-            # Set the type to Boolean to avoid errors
+            # En C-minus las condiciones se convierten implícitamente a booleano
+            # Establecer el tipo a Boolean para evitar errores
             t.child[0].type = ExpType.Boolean
     
     elif t.stmt == StmtKind.AssignK:
@@ -278,7 +278,7 @@ def checkStmt(t):
         if t.child[0].exp == ExpKind.SubscriptK:
             # Asignación a elemento de arreglo
             if t.child[1] is not None:
-                # In C-minus, all expressions assigned to array elements are integers
+                # En C-minus, todas las expresiones asignadas a elementos de arreglo son enteros
                 t.child[1].type = ExpType.Integer
         
         elif t.child[0].exp == ExpKind.IdK:
@@ -291,7 +291,7 @@ def checkStmt(t):
                 
                 # Verificar tipo
                 if t.child[1] is not None:
-                    # In C-minus, all expressions assigned to variables are integers
+                    # En C-minus, todas las expresiones asignadas a variables son enteros
                     t.child[1].type = ExpType.Integer
     
     elif t.stmt == StmtKind.ReturnK:
@@ -305,8 +305,8 @@ def checkStmt(t):
             if function_return_type == ExpType.Void:
                 error(t.lineno, "Retorno con valor en función void")
             else:
-                # In C-minus, all return values are integers
-                # Set the type to Integer to avoid errors
+                # En C-minus, todos los valores de retorno son enteros
+                # Establecer el tipo a Integer para evitar errores
                 t.child[0].type = ExpType.Integer
 
 def checkDecl(t):

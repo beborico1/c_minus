@@ -55,12 +55,12 @@ def syntaxError(message):
     if pos < 0: # Si no se encuentra, usar una posicion aproximada
         pos = 0
     
-    print(f"\n>>> Error de sintaxis - Linea {lineno}: {message}")
+    print(f"\n>>> Error de sintaxis - Línea {lineno}: {message}")
     print(line)
     print(" " * pos + "^")
     
     if token is not None and token != TokenType.ERROR:
-        print(f"   Se encontro: '{tokenString}' (token: {token.name})")
+        print(f"   Se encontró: '{tokenString}' (token: {token.name})")
 
 def match(expected):
     """
@@ -192,7 +192,7 @@ def parser(imprime = True):
     
     # Imprimir el AST si se requiere
     if imprime and syntax_tree is not None:
-        print("\n=== Arbol Sintactico Abstracto (AST) ===\n")
+        print("\n=== Árbol Sintáctico Abstracto (AST) ===\n")
         printTree(syntax_tree)
     
     return syntax_tree
@@ -674,14 +674,14 @@ def expression_safe():
             # Intentar continuar despues de error
             expression_end_tokens = [TokenType.SEMI, TokenType.RPAREN, TokenType.RBRACKET, TokenType.COMMA]
             
-            print("   Intentando recuperar expresion...")
+            print("   Intentando recuperar expresión...")
             
             # Avanzar hasta el final de la expresion
             while token not in expression_end_tokens and token != TokenType.ENDFILE:
                 token, tokenString, lineno = getToken(False)
             
             if token in expression_end_tokens:
-                print(f"   Recuperacion exitosa hasta token: {token.name}")
+                print(f"   Recuperación exitosa hasta token: {token.name}")
                 # Crear un nodo vacio para continuar
                 t = newExpNode(ExpKind.IdK)
                 t.name = "error_recovery"
@@ -699,7 +699,7 @@ def try_to_continue():
     """
     global token, tokenString, lineno, recovering
     
-    print("   Intentando continuar despues de error grave...")
+    print("   Intentando continuar después de error grave...")
     
     # Primero buscamos un terminador de expresion
     expr_terminators = [TokenType.SEMI, TokenType.RPAREN, TokenType.RBRACKET, TokenType.COMMA]
@@ -708,7 +708,7 @@ def try_to_continue():
         token, tokenString, lineno = getToken(False)
     
     if token != TokenType.ENDFILE:
-        print(f"   Continuacion exitosa en token: {token.name}")
+        print(f"   Continuación exitosa en token: {token.name}")
         recovering = False
         return True
     else:
@@ -1267,7 +1267,7 @@ def recover_from_error(sync_tokens=None):
     
     # Caso especial para expresiones aritmeticas
     if token in [TokenType.TIMES, TokenType.DIVIDE, TokenType.PLUS, TokenType.MINUS]:
-        print("   Detectado operador aritmetico, avanzando hasta fin de expresion...")
+        print("   Detectado operador aritmético, avanzando hasta fin de expresión...")
         
         # Avanzar al siguiente token inmediatamente
         token, tokenString, lineno = getToken(False)
@@ -1282,7 +1282,7 @@ def recover_from_error(sync_tokens=None):
             count += 1
         
         if token == TokenType.SEMI:
-            print(f"   Recuperacion exitosa, encontrado punto y coma")
+            print(f"   Recuperación exitosa, encontrado punto y coma")
             recovering = False
             return
     
@@ -1306,7 +1306,7 @@ def recover_from_error(sync_tokens=None):
             break
     
     if token != TokenType.ENDFILE:
-        print(f"   Recuperacion exitosa en token: {token.name}")
+        print(f"   Recuperación exitosa en token: {token.name}")
         recovering = False
     else:
         print("   No se pudo recuperar - fin del archivo")
@@ -1344,7 +1344,7 @@ def printTree(tree):
             elif tree.stmt == StmtKind.CompoundK:
                 print("Compound")
             else:
-                print("Unknown StmtNode kind")
+                print("Tipo de nodo Statement desconocido")
         elif tree.nodekind == NodeKind.ExpK:
             if tree.exp == ExpKind.OpK:
                 print(f"Op: {tree.op.name}")
@@ -1357,7 +1357,7 @@ def printTree(tree):
             elif tree.exp == ExpKind.SubscriptK:
                 print(f"Subscript: {tree.name}")
             else:
-                print("Unknown ExpNode kind")
+                print("Tipo de nodo Expression desconocido")
         elif tree.nodekind == NodeKind.DeclK:
             if tree.decl == DeclKind.VarK:
                 if tree.is_array:
@@ -1372,9 +1372,9 @@ def printTree(tree):
                 else:
                     print(f"Parameter: {tree.name}")
             else:
-                print("Unknown DeclNode kind")
+                print("Tipo de nodo Declaration desconocido")
         else:
-            print("Unknown node kind")
+            print("Tipo de nodo desconocido")
         
         # Imprimir cada hijo del nodo actual
         for i in range(MAXCHILDREN):
