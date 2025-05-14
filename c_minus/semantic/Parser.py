@@ -55,12 +55,12 @@ def syntaxError(message):
     if pos < 0: # Si no se encuentra, usar una posicion aproximada
         pos = 0
     
-    print(f"\n>>> Error de sintaxis - Línea {lineno}: {message}")
+    print(f"\n>>> Error de sintaxis - Linea {lineno}: {message}")
     print(line)
     print(" " * pos + "^")
     
     if token is not None and token != TokenType.ERROR:
-        print(f"   Se encontró: '{tokenString}' (token: {token.name})")
+        print(f"   Se encontro: '{tokenString}' (token: {token.name})")
 
 def match(expected):
     """
@@ -192,7 +192,7 @@ def parser(imprime = True):
     
     # Imprimir el AST si se requiere
     if imprime and syntax_tree is not None:
-        print("\n=== Árbol Sintáctico Abstracto (AST) ===\n")
+        print("\n=== arbol Sintactico Abstracto (AST) ===\n")
         printTree(syntax_tree)
     
     return syntax_tree
@@ -674,14 +674,14 @@ def expression_safe():
             # Intentar continuar despues de error
             expression_end_tokens = [TokenType.SEMI, TokenType.RPAREN, TokenType.RBRACKET, TokenType.COMMA]
             
-            print("   Intentando recuperar expresión...")
+            print("   Intentando recuperar expresion...")
             
             # Avanzar hasta el final de la expresion
             while token not in expression_end_tokens and token != TokenType.ENDFILE:
                 token, tokenString, lineno = getToken(False)
             
             if token in expression_end_tokens:
-                print(f"   Recuperación exitosa hasta token: {token.name}")
+                print(f"   Recuperacion exitosa hasta token: {token.name}")
                 # Crear un nodo vacio para continuar
                 t = newExpNode(ExpKind.IdK)
                 t.name = "error_recovery"
@@ -699,7 +699,7 @@ def try_to_continue():
     """
     global token, tokenString, lineno, recovering
     
-    print("   Intentando continuar después de error grave...")
+    print("   Intentando continuar despues de error grave...")
     
     # Primero buscamos un terminador de expresion
     expr_terminators = [TokenType.SEMI, TokenType.RPAREN, TokenType.RBRACKET, TokenType.COMMA]
@@ -708,7 +708,7 @@ def try_to_continue():
         token, tokenString, lineno = getToken(False)
     
     if token != TokenType.ENDFILE:
-        print(f"   Continuación exitosa en token: {token.name}")
+        print(f"   Continuacion exitosa en token: {token.name}")
         recovering = False
         return True
     else:
@@ -1267,7 +1267,7 @@ def recover_from_error(sync_tokens=None):
     
     # Caso especial para expresiones aritmeticas
     if token in [TokenType.TIMES, TokenType.DIVIDE, TokenType.PLUS, TokenType.MINUS]:
-        print("   Detectado operador aritmético, avanzando hasta fin de expresión...")
+        print("   Detectado operador aritmetico, avanzando hasta fin de expresion...")
         
         # Avanzar al siguiente token inmediatamente
         token, tokenString, lineno = getToken(False)
@@ -1282,7 +1282,7 @@ def recover_from_error(sync_tokens=None):
             count += 1
         
         if token == TokenType.SEMI:
-            print(f"   Recuperación exitosa, encontrado punto y coma")
+            print(f"   Recuperacion exitosa, encontrado punto y coma")
             recovering = False
             return
     
@@ -1306,7 +1306,7 @@ def recover_from_error(sync_tokens=None):
             break
     
     if token != TokenType.ENDFILE:
-        print(f"   Recuperación exitosa en token: {token.name}")
+        print(f"   Recuperacion exitosa en token: {token.name}")
         recovering = False
     else:
         print("   No se pudo recuperar - fin del archivo")
@@ -1389,14 +1389,14 @@ def printTree(tree):
 def recibeParser(prog, pos, long):
     """
     Recibe las variables globales desde el programa principal y las pasa
-    al analizador léxico
+    al analizador lexico
     
     Args:
         prog: String con el programa completo
         pos: Posicion inicial
         long: Longitud del programa
     """
-    # Primero enviamos las variables globales al léxico
+    # Primero enviamos las variables globales al lexico
     from Lexer import globales as lexer_globales
     lexer_globales(prog, pos, long)
     
@@ -1405,7 +1405,7 @@ def recibeParser(prog, pos, long):
 
 def parse(imprime = True):
     """
-    Función principal del parser que genera el AST (wrapper de parser)
+    Funcion principal del parser que genera el AST (wrapper de parser)
     
     Args:
         imprime: Indica si se debe imprimir el AST
@@ -1415,8 +1415,8 @@ def parse(imprime = True):
     """
     global Error
     
-    # Llamar a la función parser que ya está implementada
+    # Llamar a la funcion parser que ya esta implementada
     syntax_tree = parser(imprime)
     
-    # Devolver el árbol y el estado de error
+    # Devolver el arbol y el estado de error
     return syntax_tree, Error

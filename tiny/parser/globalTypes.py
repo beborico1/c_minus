@@ -72,21 +72,21 @@ class ExpType(Enum):
     Integer = 1
     Boolean = 2
 
-# Máximo número de hijos por nodo (3 para el if)
+# Maximo numero de hijos por nodo (3 para el if)
 MAXCHILDREN = 3
 
 class TreeNode:
     def __init__(self):
-        # MAXCHILDREN = 3 está en globalTypes
+        # MAXCHILDREN = 3 esta en globalTypes
         self.child = [None] * MAXCHILDREN # tipo treeNode
         self.sibling = None               # tipo treeNode
         self.lineno = 0                   # tipo int
         self.nodekind = None              # tipo NodeKind, en globalTypes
-        # en realidad los dos siguientes deberían ser uno solo (kind)
+        # en realidad los dos siguientes deberian ser uno solo (kind)
         # siendo la  union { StmtKind stmt; ExpKind exp;}
         self.stmt = None                  # tipo StmtKind
         self.exp = None                   # tipo ExpKind
-        # en realidad los tres siguientes deberían ser uno solo (attr)
+        # en realidad los tres siguientes deberian ser uno solo (attr)
         # siendo la  union { TokenType op; int val; char * name;}
         self.op = None                    # tipo TokenType
         self.val = None                   # tipo int

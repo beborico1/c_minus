@@ -5,7 +5,7 @@ void main(void) {
     b = 10;
     c = 2;
     
-    /* Operadores aritméticos y precedencia */
+    /* Operadores aritmeticos y precedencia */
     result = a + b * c;
     result = (a + b) * c;
     result = a - b / c + a * (b - c);

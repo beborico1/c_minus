@@ -35,8 +35,8 @@ def getToken(imprime = True):
             elif ((c == ' ') or (c == '\t') or (c == '\n')):
                 save = False
                 if (c == '\n'):
-                    #print("línea: ", lineno)
-                    lineno += 1 # incrementa el número de línea
+                    #print("linea: ", lineno)
+                    lineno += 1 # incrementa el numero de linea
             elif c == '{':
                 save = False
                 state = StateType.INCOMMENT
@@ -73,7 +73,7 @@ def getToken(imprime = True):
             elif c == '}':
                 state = StateType.START
             elif c == '\n':
-                #print("línea: ", lineno)
+                #print("linea: ", lineno)
                 lineno += 1
         elif state == StateType.INASSIGN:
             state = StateType.DONE

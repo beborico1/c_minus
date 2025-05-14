@@ -102,7 +102,7 @@ def printError(message, errorPos=None):
     line = getLine()
     pos = errorPos if errorPos is not None else linepos - 1
     
-    print(f"Línea {lineno}: {message}")
+    print(f"Linea {lineno}: {message}")
     print(line)
     print(" " * pos + "^")
 
@@ -180,7 +180,7 @@ def getToken(imprime=True):
                 else:
                     ungetChar()
                     tokenType = TokenType.ERROR
-                    printError("Se esperaba '&' después de '&'")
+                    printError("Se esperaba '&' despues de '&'")
                     state = StateType.DONE
             elif c == '|':
                 save = False
@@ -192,7 +192,7 @@ def getToken(imprime=True):
                 else:
                     ungetChar()
                     tokenType = TokenType.ERROR
-                    printError("Se esperaba '|' después de '|'")
+                    printError("Se esperaba '|' despues de '|'")
                     state = StateType.DONE
             elif c == '*':
                 state = StateType.DONE
@@ -253,7 +253,7 @@ def getToken(imprime=True):
             else:
                 state = StateType.DONE
                 tokenType = TokenType.ERROR
-                printError(f"Carácter ilegal: '{c}'")
+                printError(f"Caracter ilegal: '{c}'")
                 
         elif state == StateType.INCOMMENT:
             save = False
@@ -322,13 +322,13 @@ def getToken(imprime=True):
                 save = False
                 state = StateType.DONE
                 tokenType = TokenType.ERROR
-                printError("Se esperaba '=' después de '!'")
+                printError("Se esperaba '=' despues de '!'")
                 
         else: # Nunca deberia ocurrir
             save = False
             state = StateType.DONE
             tokenType = TokenType.ERROR
-            printError("Error en el analizador léxico")
+            printError("Error en el analizador lexico")
         
         # Guardar el caracter en tokenString si es necesario
         if save and c != '$':
