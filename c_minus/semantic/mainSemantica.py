@@ -10,7 +10,7 @@ if len(sys.argv) > 1:
     if fileName.endswith('.c-'):
         fileName = fileName[:-3]
 else:
-    fileName = "sample" # Nombre de archivo por defecto
+    fileName = "programs/sample1" # Nombre de archivo por defecto
 
 try:
     f = open(fileName + '.c-', 'r')
