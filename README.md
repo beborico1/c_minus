@@ -23,6 +23,8 @@
 ---
 
 ## 🗂️ Repository layout
+
+```text
 ├── Analizador Semántico/     # PDF slides & rubric
 ├── c_minus/                  # Current C-– compiler implementation
 │   ├── globalTypes.py
