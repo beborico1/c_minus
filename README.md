@@ -23,16 +23,16 @@
 ---
 
 ## 🗂️ Repository layout
-\n├── Analizador Semántico/ # PDF slides & rubric
-\n├── c_minus/ # Current C-– compiler implementation
-\n│ ├── globalTypes.py
-│ ├── lexer.py
-│ ├── Parser.py
-│ ├── semantica.py
-│ └── symtab.py
-├── tiny/ # Legacy Tiny compiler (reference baseline)
-├── tasks/ # Short programs, test cases & scripts
-├── parser_transcript.md # Design notes
-└── projects.md # Road-map / To-dos
+├── Analizador Semántico/     # PDF slides & rubric
+├── c_minus/                  # Current C-– compiler implementation
+│   ├── globalTypes.py
+│   ├── lexer.py
+│   ├── Parser.py
+│   ├── semantica.py
+│   └── symtab.py
+├── tiny/                     # Legacy Tiny compiler (reference baseline)
+├── tasks/                    # Short programs, test cases & scripts
+├── parser_transcript.md      # Design notes
+└── projects.md               # Road-map / To-dos
 
 ---
