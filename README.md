@@ -23,10 +23,9 @@
 ---
 
 ## 🗂️ Repository layout
-
-├── Analizador Semántico/ # PDF slides & rubric
-├── c_minus/ # Current C-– compiler implementation
-│ ├── globalTypes.py
+\n├── Analizador Semántico/ # PDF slides & rubric
+\n├── c_minus/ # Current C-– compiler implementation
+\n│ ├── globalTypes.py
 │ ├── lexer.py
 │ ├── Parser.py
 │ ├── semantica.py
