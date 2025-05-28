@@ -1,5 +1,5 @@
 from globalTypes import *
-from Lexer import getToken, getLine
+from lexer import getToken, getLine
 
 # Variables globales
 programa = "" # Contiene el programa completo como string
@@ -1428,7 +1428,7 @@ def recibeParser(prog, pos, long):
         long: Longitud del programa
     """
     # Primero enviamos las variables globales al lexico
-    from Lexer import globales as lexer_globales
+    from lexer import globales as lexer_globales
     lexer_globales(prog, pos, long)
     
     # Luego inicializamos las variables globales del parser

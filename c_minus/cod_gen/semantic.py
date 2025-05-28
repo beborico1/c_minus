@@ -458,3 +458,39 @@ def typeCheck(syntaxTree):
     typeCheckTraverse(syntaxTree)
     
     return Error
+
+def semantica(syntaxTree, imprime=True):
+    """
+    Función principal para análisis semántico que combina 
+    construcción de tabla de símbolos y verificación de tipos
+    """
+    global Error
+    Error = False
+    
+    if imprime:
+        print("\n=== Iniciando análisis semántico ===")
+    
+    # Construir tabla de símbolos
+    buildSymtab(syntaxTree, imprime)
+    
+    if not Error:
+        # IMPORTANT: Infer types before type checking
+        from symtab import inferTypes
+        if imprime:
+            print("Inferring Types...")
+        inferTypes(syntaxTree)
+        
+        # Verificar tipos
+        if imprime:
+            print("Checking Types...")
+        typeCheck(syntaxTree)
+        if imprime:
+            print("Type Checking Finished")
+    
+    if imprime:
+        if Error:
+            print("=== Análisis semántico completado con errores ===")
+        else:
+            print("=== Análisis semántico completado exitosamente ===")
+    
+    return not Error
