@@ -2,8 +2,6 @@
 # File: prueba.s
 .data
 newline: .asciiz "\n"
-var_x: .word 0
-var_result: .word 0
 
 .text
 .globl main
@@ -21,6 +19,7 @@ factorial:
 # -> if
 # -> Op
 # -> Id
+    lw $v0, 8($fp)
 # <- Id
     move $t0, $v0
 # -> Const
@@ -30,7 +29,7 @@ factorial:
     slt $v0, $t1, $t0
     xori $v0, $v0, 1
 # <- Op
-    beq $v0, $zero, L14
+    beq $v0, $zero, L1
 # -> compound
 # -> return
 # -> Const
@@ -39,12 +38,13 @@ factorial:
     jr $ra
 # <- return
 # <- compound
-    j L17
-L15:
+    j L2
+L1:
 # -> compound
 # -> return
 # -> Op
 # -> Id
+    lw $v0, 8($fp)
 # <- Id
     move $t0, $v0
 # -> Call: factorial
@@ -52,6 +52,7 @@ L15:
     sw $ra, 0($sp)
 # -> Op
 # -> Id
+    lw $v0, 8($fp)
 # <- Id
     move $t0, $v0
 # -> Const
@@ -71,7 +72,7 @@ L15:
     jr $ra
 # <- return
 # <- compound
-L30:
+L2:
 # <- if
 # <- compound
     move $sp, $fp
@@ -86,27 +87,32 @@ main:
     sw $fp, 4($sp)
     sw $ra, 0($sp)
     move $fp, $sp
+    addi $sp, $sp, -8
 # -> compound
 # -> assign
 # -> Call: input
     li $v0, 5
     syscall
 # <- Call: input
+    sw $v0, -12($fp)
 # <- assign
 # -> assign
 # -> Call: factorial
     addi $sp, $sp, -4
     sw $ra, 0($sp)
 # -> Id
+    lw $v0, -12($fp)
 # <- Id
     move $a0, $v0
     jal factorial
     lw $ra, 0($sp)
     addi $sp, $sp, 4
 # <- Call: factorial
+    sw $v0, -16($fp)
 # <- assign
 # -> Call: output
 # -> Id
+    lw $v0, -16($fp)
 # <- Id
     move $a0, $v0
     li $v0, 1

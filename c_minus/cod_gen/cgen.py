@@ -1,7 +1,6 @@
 # cgen.py
 from globalTypes import *
 from symtab import *
-import sys
 
 # MIPS registers
 zero = "$zero"  # Always 0
@@ -40,12 +39,19 @@ highEmitLoc = 0
 tmpOffset = 0
 mainLoc = 0
 globalOffset = 0
+localOffset = 0
+paramOffset = 0
+labelCount = 0
 
 # Output file
 code_file = None
 
 # Trace code generation
 TraceCode = True
+
+# Track current function and local variables
+current_function = None
+local_vars = {}  # Maps variable names to their offsets
 
 def emitComment(comment):
     """Emit a comment in the assembly code"""
@@ -65,6 +71,12 @@ def emitLabel(label):
     """Emit a label"""
     if code_file:
         code_file.write(f"{label}:\n")
+
+def getLabel():
+    """Generate a unique label"""
+    global labelCount
+    labelCount += 1
+    return f"L{labelCount}"
 
 def emitSkip(howMany):
     """Skip locations for later backpatch"""
@@ -106,32 +118,38 @@ def genStmt(tree):
         emitComment("-> if")
         # Generate test expression
         cGen(tree.child[0])
+        # Get labels
+        false_label = getLabel()
+        end_label = getLabel()
         # Branch if false
-        emit(f"beq {v0}, {zero}, L{emitLoc+2}")
+        emit(f"beq {v0}, {zero}, {false_label}")
         # Generate then part
         cGen(tree.child[1])
         if tree.child[2] is not None:
             # Jump over else part
-            emit(f"j L{emitLoc+2}")
-            emitLabel(f"L{emitLoc-1}")
+            emit(f"j {end_label}")
+            emitLabel(false_label)
             # Generate else part
             cGen(tree.child[2])
-        emitLabel(f"L{emitLoc}")
+            emitLabel(end_label)
+        else:
+            emitLabel(false_label)
         emitComment("<- if")
         
     elif tree.stmt == StmtKind.WhileK:
         emitComment("-> while")
-        loop_start = emitLoc
-        emitLabel(f"L{loop_start}")
+        loop_label = getLabel()
+        end_label = getLabel()
+        emitLabel(loop_label)
         # Generate test expression
         cGen(tree.child[0])
         # Branch if false (exit loop)
-        emit(f"beq {v0}, {zero}, L{emitLoc+2}")
+        emit(f"beq {v0}, {zero}, {end_label}")
         # Generate body
         cGen(tree.child[1])
         # Jump back to start
-        emit(f"j L{loop_start}")
-        emitLabel(f"L{emitLoc-1}")
+        emit(f"j {loop_label}")
+        emitLabel(end_label)
         emitComment("<- while")
         
     elif tree.stmt == StmtKind.AssignK:
@@ -139,21 +157,29 @@ def genStmt(tree):
         # Generate RHS expression
         cGen(tree.child[1])
         # Store result
-        if tree.child[0].exp == ExpKind.SubscriptK:  # Changed from ArrayK to SubscriptK
+        if tree.child[0].exp == ExpKind.SubscriptK:
             # Array element assignment
             emit(f"move {t0}, {v0}")  # Save RHS value
             cGen(tree.child[0].child[0])  # Generate index
             emit(f"sll {v0}, {v0}, 2")  # Multiply by 4
-            loc = st_lookup(tree.child[0].name)
-            if loc:  # Changed from loc >= 0
+            # Check if local or global
+            if tree.child[0].name in local_vars:
+                offset = local_vars[tree.child[0].name]
+                emit(f"addi {t1}, {fp}, {offset}")
+            else:
                 emit(f"la {t1}, var_{tree.child[0].name}")
-                emit(f"add {t1}, {t1}, {v0}")
-                emit(f"sw {t0}, 0({t1})")
+            emit(f"add {t1}, {t1}, {v0}")
+            emit(f"sw {t0}, 0({t1})")
         else:
             # Simple variable assignment
-            loc = st_lookup(tree.child[0].name)
-            if loc:  # Changed from loc >= 0
-                emit(f"sw {v0}, var_{tree.child[0].name}")
+            var_name = tree.child[0].name
+            if var_name in local_vars:
+                # Local variable
+                offset = local_vars[var_name]
+                emit(f"sw {v0}, {offset}({fp})")
+            else:
+                # Global variable
+                emit(f"sw {v0}, var_{var_name}")
         emitComment("<- assign")
         
     elif tree.stmt == StmtKind.ReturnK:
@@ -180,16 +206,25 @@ def genExp(tree):
         
     elif tree.exp == ExpKind.IdK:
         emitComment("-> Id")
-        loc = st_lookup(tree.name)
-        if loc:  # Changed from loc >= 0
-            emit(f"lw {v0}, var_{tree.name}")
+        var_name = tree.name
+        if var_name in local_vars:
+            # Local variable or parameter
+            offset = local_vars[var_name]
+            emit(f"lw {v0}, {offset}({fp})")
+        else:
+            # Global variable
+            emit(f"lw {v0}, var_{var_name}")
         emitComment("<- Id")
         
-    elif tree.exp == ExpKind.SubscriptK:  # Changed from ArrayK to SubscriptK
+    elif tree.exp == ExpKind.SubscriptK:
         emitComment("-> Array access")
         cGen(tree.child[0])  # Generate index
         emit(f"sll {v0}, {v0}, 2")  # Multiply by 4
-        emit(f"la {t0}, var_{tree.name}")
+        if tree.name in local_vars:
+            offset = local_vars[tree.name]
+            emit(f"addi {t0}, {fp}, {offset}")
+        else:
+            emit(f"la {t0}, var_{tree.name}")
         emit(f"add {t0}, {t0}, {v0}")
         emit(f"lw {v0}, 0({t0})")
         emitComment("<- Array access")
@@ -258,7 +293,7 @@ def genExp(tree):
             emit(f"sub {v0}, {t0}, {t1}")
         elif tree.op == TokenType.TIMES:
             emit(f"mul {v0}, {t0}, {t1}")
-        elif tree.op == TokenType.DIVIDE:  # Changed from OVER
+        elif tree.op == TokenType.DIVIDE:
             emit(f"div {t0}, {t1}")
             emit(f"mflo {v0}")
         elif tree.op == TokenType.LT:
@@ -279,11 +314,36 @@ def genExp(tree):
 
 def genDecl(tree):
     """Generate code for declaration nodes"""
+    global current_function, local_vars, localOffset, paramOffset
+    
     if tree.decl == DeclKind.VarK:
-        # Variable declarations are handled in data section
-        pass
+        # Local variable declarations are handled by tracking offsets
+        if current_function is not None:
+            # Inside a function - allocate space on stack
+            localOffset -= 4
+            local_vars[tree.name] = localOffset
+            if tree.is_array and tree.array_size:
+                # Allocate space for array
+                localOffset -= 4 * (tree.array_size - 1)
+    
     elif tree.decl == DeclKind.FunK:
         emitComment(f"-> Function: {tree.name}")
+        current_function = tree.name
+        local_vars.clear()
+        localOffset = -8  # Start after saved fp and ra
+        paramOffset = 8   # Parameters start at fp+8
+        
+        # Process parameters to record their offsets
+        for i, param in enumerate(tree.params):
+            if hasattr(param, 'name') and param.name:
+                local_vars[param.name] = paramOffset + i * 4
+        
+        # First pass: count local variables to allocate space
+        saved_localOffset = localOffset
+        countLocalVars(tree.child[0])
+        space_needed = -8 - localOffset
+        localOffset = saved_localOffset  # Reset for actual code generation
+        
         emitLabel(tree.name)
         
         # Function prologue
@@ -291,6 +351,10 @@ def genDecl(tree):
         emit(f"sw {fp}, 4({sp})")
         emit(f"sw {ra}, 0({sp})")
         emit(f"move {fp}, {sp}")
+        
+        # Allocate space for local variables
+        if space_needed > 0:
+            emit(f"addi {sp}, {sp}, -{space_needed}")
         
         # Generate function body
         if tree.child[0] is not None:
@@ -303,6 +367,29 @@ def genDecl(tree):
         emit(f"addi {sp}, {sp}, 8")
         emit(f"jr {ra}")
         emitComment(f"<- Function: {tree.name}")
+        
+        current_function = None
+
+def countLocalVars(tree):
+    """Count local variables in a compound statement"""
+    global localOffset
+    
+    if tree is None:
+        return
+    
+    if tree.nodekind == NodeKind.DeclK and tree.decl == DeclKind.VarK:
+        localOffset -= 4
+        if tree.is_array and tree.array_size:
+            localOffset -= 4 * (tree.array_size - 1)
+    
+    # Process children
+    for i in range(MAXCHILDREN):
+        if tree.child[i] is not None:
+            countLocalVars(tree.child[i])
+    
+    # Process siblings
+    if tree.sibling is not None:
+        countLocalVars(tree.sibling)
 
 def codeGen(syntaxTree, codefile):
     """Main function to generate code"""
@@ -341,12 +428,15 @@ def generateGlobals(tree):
     """Generate .data section for global variables"""
     if tree is not None:
         if tree.nodekind == NodeKind.DeclK and tree.decl == DeclKind.VarK:
-            if tree.array_size is not None:
-                # Array variable
-                code_file.write(f"var_{tree.name}: .space {tree.array_size * 4}\n")
-            else:
-                # Simple variable
-                code_file.write(f"var_{tree.name}: .word 0\n")
+            # Only generate globals for variables declared outside functions
+            sym = st_lookup(tree.name)
+            if sym and sym.scope_level == 0:  # Global scope
+                if tree.is_array and tree.array_size:
+                    # Array variable
+                    code_file.write(f"var_{tree.name}: .space {tree.array_size * 4}\n")
+                else:
+                    # Simple variable
+                    code_file.write(f"var_{tree.name}: .word 0\n")
         
         # Check children
         for i in range(MAXCHILDREN):
