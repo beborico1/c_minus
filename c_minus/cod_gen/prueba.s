@@ -5,46 +5,48 @@ newline: .asciiz "\n"
 
 .text
 .globl main
-__start:
-    jal main
-    li $v0, 10
-    syscall
+
 # -> Function: factorial
 factorial:
     addi $sp, $sp, -8
-    sw $fp, 4($sp)
-    sw $ra, 0($sp)
-    move $fp, $sp
+    sw $ra, 4($sp)
+    sw $a0, 0($sp)
 # -> compound
 # -> if
 # -> Op
 # -> Id
-    lw $v0, 8($fp)
+    lw $v0, 0($sp)
 # <- Id
     move $t0, $v0
 # -> Const
     li $v0, 1
 # <- Const
     move $t1, $v0
-    slt $v0, $t1, $t0
-    xori $v0, $v0, 1
+    ble $t0, $t1, L1
+    li $v0, 0
+    j L2
+L1:
+    li $v0, 1
+L2:
 # <- Op
-    beq $v0, $zero, L1
+    beqz $v0, L3
 # -> compound
 # -> return
 # -> Const
     li $v0, 1
 # <- Const
+    lw $ra, 4($sp)
+    addi $sp, $sp, 8
     jr $ra
 # <- return
 # <- compound
-    j L2
-L1:
+    j L4
+L3:
 # -> compound
 # -> return
 # -> Op
 # -> Id
-    lw $v0, 8($fp)
+    lw $v0, 0($sp)
 # <- Id
     move $t0, $v0
 # -> Call: factorial
@@ -52,7 +54,7 @@ L1:
     sw $ra, 0($sp)
 # -> Op
 # -> Id
-    lw $v0, 8($fp)
+    lw $v0, 0($sp)
 # <- Id
     move $t0, $v0
 # -> Const
@@ -69,24 +71,17 @@ L1:
     move $t1, $v0
     mul $v0, $t0, $t1
 # <- Op
+    lw $ra, 4($sp)
+    addi $sp, $sp, 8
     jr $ra
 # <- return
 # <- compound
-L2:
+L4:
 # <- if
 # <- compound
-    move $sp, $fp
-    lw $ra, 0($sp)
-    lw $fp, 4($sp)
-    addi $sp, $sp, 8
-    jr $ra
 # <- Function: factorial
 # -> Function: main
 main:
-    addi $sp, $sp, -8
-    sw $fp, 4($sp)
-    sw $ra, 0($sp)
-    move $fp, $sp
     addi $sp, $sp, -8
 # -> compound
 # -> assign
@@ -94,25 +89,25 @@ main:
     li $v0, 5
     syscall
 # <- Call: input
-    sw $v0, -12($fp)
+    sw $v0, -4($sp)
 # <- assign
 # -> assign
 # -> Call: factorial
     addi $sp, $sp, -4
     sw $ra, 0($sp)
 # -> Id
-    lw $v0, -12($fp)
+    lw $v0, -4($sp)
 # <- Id
     move $a0, $v0
     jal factorial
     lw $ra, 0($sp)
     addi $sp, $sp, 4
 # <- Call: factorial
-    sw $v0, -16($fp)
+    sw $v0, -8($sp)
 # <- assign
 # -> Call: output
 # -> Id
-    lw $v0, -16($fp)
+    lw $v0, -8($sp)
 # <- Id
     move $a0, $v0
     li $v0, 1
@@ -122,9 +117,6 @@ main:
     syscall
 # <- Call: output
 # <- compound
-    move $sp, $fp
-    lw $ra, 0($sp)
-    lw $fp, 4($sp)
-    addi $sp, $sp, 8
-    jr $ra
+    li $v0, 10
+    syscall
 # <- Function: main
