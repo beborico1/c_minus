@@ -1,0 +1,29 @@
+/* Test 6: Return type checking */
+
+int func_int(void) {
+    return 42;         /* OK */
+}
+
+void func_void(void) {
+    return;           /* OK */
+}
+
+int func_bad1(void) {
+    return;           /* ERROR: Missing return value in int function */
+}
+
+void func_bad2(void) {
+    return 42;        /* ERROR: Return value in void function */
+}
+
+int func_bad3(void) {
+    return func_void(); /* ERROR: Return type mismatch (void instead of int) */
+}
+
+void main(void) {
+    int x;
+    
+    x = func_int();    /* OK */
+    func_void();       /* OK */
+    x = func_void();   /* This might work depending on parser - void assignment */
+}

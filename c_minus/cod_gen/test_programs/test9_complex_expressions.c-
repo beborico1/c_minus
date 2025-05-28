@@ -1,0 +1,37 @@
+/* Test 9: Complex expressions and type checking */
+
+int factorial(int n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+int max(int a, int b) {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+void main(void) {
+    int arr[10];
+    int i;
+    int result;
+    
+    /* Valid complex expressions */
+    result = factorial(5);
+    result = max(10, 20);
+    result = max(factorial(3), factorial(4));
+    arr[i] = max(arr[i+1], arr[i+2]);
+    
+    /* Type checking in complex expressions */
+    result = factorial(max(2, 3)) + max(factorial(2), 5);  /* OK */
+    
+    /* Invalid complex expressions */
+    result = factorial(output(5));  /* ERROR: output returns void */
+    arr[max(1, 2)] = 10;           /* OK: max returns int */
+    arr[output(3)] = 5;            /* ERROR: output returns void, can't be index */
+}

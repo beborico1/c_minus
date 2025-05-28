@@ -1,0 +1,14 @@
+/* Test 1: Basic variable declarations and usage */
+
+int x;
+int y[10];
+
+void main(void) {
+    int a;
+    int b[5];
+    
+    x = 10;
+    a = 20;
+    y[0] = 30;
+    b[2] = 40;
+}

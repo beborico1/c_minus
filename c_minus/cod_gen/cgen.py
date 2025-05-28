@@ -189,14 +189,22 @@ def genStmt(tree):
         if tree.child[0] is not None:
             cGen(tree.child[0])  # Result will be in $a0
         
-        # Simple return
+        # Return based on function type
         if current_function == "factorial":
             # Restore return address and clean up
             emit(f"lw {ra}, 4({sp})")
             emit(f"addi {sp}, {sp}, 8")  # Clean up saved ra and parameter
             emit(f"jr {ra}")
+        elif current_function and current_function != "main":
+            # Generic function return - use the param_count from function declaration
+            # param_count is already set correctly in genDecl() 
+            stack_size = 4 + 4 * param_count
+            # For add function: param_count=2, stack_size=12, $ra at 8($sp)
+            emit(f"lw {ra}, {stack_size-4}({sp})")
+            emit(f"addi {sp}, {sp}, {stack_size}")
+            emit(f"jr {ra}")
         else:
-            # Regular return
+            # Main or unknown function
             emit(f"jr {ra}")
         emitComment("<- return")
         
@@ -258,13 +266,32 @@ def genExp(tree):
                 emit(f"la {a0}, newline")
                 emit("syscall")
         else:
-            # Simple function call
-            # Generate argument in $a0
-            if tree.child[0] is not None:
-                cGen(tree.child[0])  # Result in $a0
+            # User-defined function call
+            # For 2 arguments: evaluate first, save it, evaluate second, then move properly
+            arg_list = []
+            arg = tree.child[0]
+            while arg is not None:
+                arg_list.append(arg)
+                arg = arg.sibling
+            
+            if len(arg_list) == 2:
+                # Two arguments - handle specially 
+                cGen(arg_list[0])  # First arg in $a0
+                emit(f"addi {sp}, {sp}, -4")
+                emit(f"sw {a0}, 0({sp})")  # Save first arg
+                cGen(arg_list[1])  # Second arg in $a0
+                emit(f"move {a1}, {a0}")  # Move second to $a1
+                emit(f"lw {a0}, 0({sp})")  # Restore first to $a0
+                emit(f"addi {sp}, {sp}, 4")  # Clean up temp space
+            else:
+                # Single or no arguments
+                if len(arg_list) >= 1:
+                    cGen(arg_list[0])  # Result in $a0
             
             # Call function
-            emit(f"jal {tree.name}")
+            # Use prefixed function name to avoid conflicts
+            func_name = f"func_{tree.name}" if tree.name not in ["input", "output", "main"] else tree.name
+            emit(f"jal {func_name}")
             
             # The result is in $a0 (accumulator)
         emitComment(f"<- Call: {tree.name}")
@@ -306,48 +333,42 @@ def genExp(tree):
                 emit(f"mul {a0}, {t0}, {a0}")
         else:
             # Normal case - no function calls
-            # Generate left operand
-            cGen(tree.child[0])
-            emit(f"sw {a0}, 0({sp})")  # Push left operand
-            emit(f"addi {sp}, {sp}, -4")
-            
-            # Generate right operand
-            cGen(tree.child[1])
-            
-            # Pop left operand into $t1
-            emit(f"lw {t1}, 4({sp})")
-            emit(f"addi {sp}, {sp}, 4")
+            # For simple operations like a+b where both are parameters/locals
+            # Don't use stack - use registers directly
+            cGen(tree.child[0])  # Left operand in $a0
+            emit(f"move {t0}, {a0}")  # Save left in $t0
+            cGen(tree.child[1])  # Right operand in $a0
             
             # Perform operation (result in $a0)
             if tree.op == TokenType.PLUS:
-                emit(f"add {a0}, {t1}, {a0}")
+                emit(f"add {a0}, {t0}, {a0}")
             elif tree.op == TokenType.MINUS:
-                emit(f"sub {a0}, {t1}, {a0}")
+                emit(f"sub {a0}, {t0}, {a0}")
             elif tree.op == TokenType.TIMES:
-                emit(f"mul {a0}, {t1}, {a0}")
+                emit(f"mul {a0}, {t0}, {a0}")
             elif tree.op == TokenType.DIVIDE:
-                emit(f"div {t1}, {a0}")
+                emit(f"div {t0}, {a0}")
                 emit(f"mflo {a0}")
             elif tree.op == TokenType.LT:
-                emit(f"slt {a0}, {t1}, {a0}")
+                emit(f"slt {a0}, {t0}, {a0}")
             elif tree.op == TokenType.LTE:
                 true_label = getLabel()
                 end_label = getLabel()
-                emit(f"ble {t1}, {a0}, {true_label}")
+                emit(f"ble {t0}, {a0}, {true_label}")
                 emit(f"li {a0}, 0")
                 emit(f"j {end_label}")
                 emitLabel(true_label)
                 emit(f"li {a0}, 1")
                 emitLabel(end_label)
             elif tree.op == TokenType.GT:
-                emit(f"slt {a0}, {a0}, {t1}")
+                emit(f"slt {a0}, {a0}, {t0}")
             elif tree.op == TokenType.GTE:
-                emit(f"slt {a0}, {t1}, {a0}")
+                emit(f"slt {a0}, {t0}, {a0}")
                 emit(f"xori {a0}, {a0}, 1")
             elif tree.op == TokenType.EQ:
                 true_label = getLabel()
                 end_label = getLabel()
-                emit(f"beq {t1}, {a0}, {true_label}")
+                emit(f"beq {t0}, {a0}, {true_label}")
                 emit(f"li {a0}, 0")
                 emit(f"j {end_label}")
                 emitLabel(true_label)
@@ -356,7 +377,7 @@ def genExp(tree):
             elif tree.op == TokenType.NEQ:
                 true_label = getLabel()
                 end_label = getLabel()
-                emit(f"bne {t1}, {a0}, {true_label}")
+                emit(f"bne {t0}, {a0}, {true_label}")
                 emit(f"li {a0}, 0")
                 emit(f"j {end_label}")
                 emitLabel(true_label)
@@ -389,7 +410,9 @@ def genDecl(tree):
         # Count parameters
         param_count = len(tree.params)
         
-        emitLabel(tree.name)
+        # Prefix function names to avoid conflicts with MIPS instructions
+        func_label = f"func_{tree.name}" if tree.name != "main" else "main"
+        emitLabel(func_label)
         
         if tree.name == "factorial":
             # Simple approach like working example
@@ -409,14 +432,27 @@ def genDecl(tree):
             if space_needed > 0:
                 emit(f"addi {sp}, {sp}, -{space_needed}")
         else:
-            # Other functions
-            emit(f"addi {sp}, {sp}, -8")
-            emit(f"sw {ra}, 4({sp})")
-            emit(f"sw {a0}, 0({sp})")
+            # Other functions - handle multiple parameters
+            # For C-, parameters are passed in registers $a0-$a3
+            # We'll save them on the stack
+            stack_size = 4 + 4 * param_count  # Space for $ra + parameters
+            emit(f"addi {sp}, {sp}, -{stack_size}")
+            emit(f"sw {ra}, {stack_size-4}({sp})")
             
-            # Mark parameters
-            if param_count > 0 and hasattr(tree.params[0], 'name'):
-                local_vars[tree.params[0].name] = "param"
+            # Save parameters
+            for i in range(min(param_count, 4)):  # Max 4 register params
+                if i == 0:
+                    emit(f"sw {a0}, {i*4}({sp})")
+                elif i == 1:
+                    emit(f"sw {a1}, {i*4}({sp})")
+                elif i == 2:
+                    emit(f"sw {a2}, {i*4}({sp})")
+                elif i == 3:
+                    emit(f"sw {a3}, {i*4}({sp})")
+                    
+                # Mark parameter locations
+                if i < len(tree.params) and hasattr(tree.params[i], 'name'):
+                    local_vars[tree.params[i].name] = i * 4
         
         # Generate function body
         if tree.child[0] is not None:
@@ -430,10 +466,8 @@ def genDecl(tree):
             # Factorial cleanup - already has returns in body
             pass
         else:
-            # Default epilogue
-            emit(f"lw {ra}, 4({sp})")
-            emit(f"addi {sp}, {sp}, 8")
-            emit(f"jr {ra}")
+            # Default epilogue - already handled in return statements
+            pass
         
         emitComment(f"<- Function: {tree.name}")
         
