@@ -1,13 +1,13 @@
 /* Test 5: Nested function calls */
 
-int double_val(int x) {
+int doubleVal(int x) {
     return x * 2;
 }
 
-int triple_val(int x) {
+int tripleVal(int x) {
     return x * 3;
 }
 
 void main(void) {
-    output(double_val(triple_val(4))); /* Should output 24 */
+    output(doubleVal(tripleVal(4))); /* Should output 24 */
 }

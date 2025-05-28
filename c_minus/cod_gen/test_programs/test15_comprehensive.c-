@@ -1,26 +1,26 @@
 /* Test 15: Comprehensive test */
 
-int global_result;
+int globalResult;
 
-int calculate_complex(int a, int b) {
+int calculateComplex(int a, int b) {
     int temp;
     temp = a * 2;
     return temp + b - 1;
 }
 
-int simple_add(int x, int y) {
+int simpleAdd(int x, int y) {
     return x + y;
 }
 
 void main(void) {
-    int local_val;
+    int localVal;
     
-    global_result = 5;
-    local_val = 7;
+    globalResult = 5;
+    localVal = 7;
     
-    global_result = simple_add(global_result, local_val);
-    local_val = calculate_complex(3, 4);
+    globalResult = simpleAdd(globalResult, localVal);
+    localVal = calculateComplex(3, 4);
     
-    output(global_result); /* Should output 12 */
-    output(local_val); /* Should output 9 */
+    output(globalResult); /* Should output 12 */
+    output(localVal); /* Should output 9 */
 }
