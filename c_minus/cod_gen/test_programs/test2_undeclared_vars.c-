@@ -1,9 +1,0 @@
-/* Test 2: Undeclared variables - Should produce errors */
-
-int x;
-
-void main(void) {
-    x = 10;      /* OK */
-    y = 20;      /* ERROR: y not declared */
-    z[0] = 30;   /* ERROR: z not declared */
-}
