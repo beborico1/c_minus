@@ -1,0 +1,13 @@
+/* Test 8: Complex expressions */
+
+void main(void) {
+    int a;
+    int b; 
+    int c;
+    
+    a = 5;
+    b = 3;
+    c = 2;
+    
+    output(a * b + c - 1); /* Should output 16 */
+}

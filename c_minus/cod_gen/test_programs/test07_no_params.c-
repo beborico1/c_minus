@@ -1,0 +1,11 @@
+/* Test 7: Functions with no parameters */
+
+int getValue(void) {
+    return 42;
+}
+
+void main(void) {
+    int x;
+    x = getValue();
+    output(x); /* Should output 42 */
+}

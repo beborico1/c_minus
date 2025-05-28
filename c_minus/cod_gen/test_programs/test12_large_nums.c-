@@ -1,0 +1,7 @@
+/* Test 12: Large numbers */
+
+void main(void) {
+    int big;
+    big = 12345;
+    output(big); /* Should output 12345 */
+}

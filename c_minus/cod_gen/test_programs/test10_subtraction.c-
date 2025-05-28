@@ -1,0 +1,9 @@
+/* Test 10: Subtraction operations */
+
+int subtract(int a, int b) {
+    return a - b;
+}
+
+void main(void) {
+    output(subtract(20, 7)); /* Should output 13 */
+}

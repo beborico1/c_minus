@@ -1,0 +1,7 @@
+/* Test 9: Various constants */
+
+void main(void) {
+    output(100);
+    output(0);
+    output(999);
+}

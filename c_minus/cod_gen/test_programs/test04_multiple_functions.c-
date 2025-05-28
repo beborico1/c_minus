@@ -1,0 +1,15 @@
+/* Test 4: Multiple function calls */
+
+int multiply(int x, int y) {
+    return x * y;
+}
+
+int add(int x, int y) {
+    return x + y;
+}
+
+void main(void) {
+    int result;
+    result = add(multiply(3, 4), 5);
+    output(result); /* Should output 17 */
+}

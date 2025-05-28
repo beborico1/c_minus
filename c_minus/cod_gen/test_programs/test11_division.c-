@@ -1,0 +1,9 @@
+/* Test 11: Division operations */
+
+int divide(int a, int b) {
+    return a / b;
+}
+
+void main(void) {
+    output(divide(15, 3)); /* Should output 5 */
+}

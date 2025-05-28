@@ -1,0 +1,14 @@
+/* Test 13: Mixed global and local variables */
+
+int global_var;
+
+int process(int param) {
+    int local_var;
+    local_var = param + global_var;
+    return local_var;
+}
+
+void main(void) {
+    global_var = 10;
+    output(process(25)); /* Should output 35 */
+}

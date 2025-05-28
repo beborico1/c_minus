@@ -1,0 +1,10 @@
+/* Test 3: Local variables */
+
+void main(void) {
+    int a;
+    int b;
+    
+    a = 7;
+    b = 8;
+    output(a + b); /* Should output 15 */
+}

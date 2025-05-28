@@ -1,0 +1,9 @@
+/* Test 6: Single parameter functions */
+
+int square(int n) {
+    return n * n;
+}
+
+void main(void) {
+    output(square(6)); /* Should output 36 */
+}
