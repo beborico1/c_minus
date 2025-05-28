@@ -266,27 +266,22 @@ def genExp(tree):
                 emit(f"la {a0}, newline")
                 emit("syscall")
         else:
-            # User-defined function call
-            # For 2 arguments: evaluate first, save it, evaluate second, then move properly
-            arg_list = []
-            arg = tree.child[0]
-            while arg is not None:
-                arg_list.append(arg)
-                arg = arg.sibling
-            
-            if len(arg_list) == 2:
-                # Two arguments - handle specially 
-                cGen(arg_list[0])  # First arg in $a0
-                emit(f"addi {sp}, {sp}, -4")
-                emit(f"sw {a0}, 0({sp})")  # Save first arg
-                cGen(arg_list[1])  # Second arg in $a0
-                emit(f"move {a1}, {a0}")  # Move second to $a1
-                emit(f"lw {a0}, 0({sp})")  # Restore first to $a0
-                emit(f"addi {sp}, {sp}, 4")  # Clean up temp space
-            else:
-                # Single or no arguments
-                if len(arg_list) >= 1:
-                    cGen(arg_list[0])  # Result in $a0
+            # User-defined function call  
+            # Handle arguments manually to avoid automatic sibling traversal
+            if tree.child[0] is not None:
+                # First argument exists
+                if tree.child[0].sibling is not None:
+                    # Two arguments - handle carefully to avoid stack pointer issues
+                    # Generate first argument directly using genExp to avoid sibling traversal
+                    genExp(tree.child[0])  # First arg in $a0  
+                    emit(f"move {t0}, {a0}")  # Save first arg in register instead of stack
+                    # Generate second argument  
+                    genExp(tree.child[0].sibling)  # Second arg in $a0
+                    emit(f"move {a1}, {a0}")  # Move second to $a1
+                    emit(f"move {a0}, {t0}")  # Restore first to $a0
+                else:
+                    # Single argument
+                    genExp(tree.child[0])  # Result in $a0
             
             # Call function
             # Use prefixed function name to avoid conflicts

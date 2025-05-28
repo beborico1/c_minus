@@ -7,7 +7,7 @@ newline: .asciiz "\n"
 .globl main
 
 # -> Function: factorial
-factorial:
+func_factorial:
     addi $sp, $sp, -8
     sw $ra, 4($sp)
     sw $a0, 0($sp)
@@ -17,14 +17,11 @@ factorial:
 # -> Id
     lw $a0, 0($sp)
 # <- Id
-    sw $a0, 0($sp)
-    addi $sp, $sp, -4
+    move $t0, $a0
 # -> Const
     li $a0, 1
 # <- Const
-    lw $t1, 4($sp)
-    addi $sp, $sp, 4
-    ble $t1, $a0, L1
+    ble $t0, $a0, L1
     li $a0, 0
     j L2
 L1:
@@ -52,16 +49,13 @@ L3:
 # -> Id
     lw $a0, 0($sp)
 # <- Id
-    sw $a0, 0($sp)
-    addi $sp, $sp, -4
+    move $t0, $a0
 # -> Const
     li $a0, 1
 # <- Const
-    lw $t1, 4($sp)
-    addi $sp, $sp, 4
-    sub $a0, $t1, $a0
+    sub $a0, $t0, $a0
 # <- Op
-    jal factorial
+    jal func_factorial
 # <- Call: factorial
     move $t1, $a0
 # -> Id
@@ -97,7 +91,7 @@ main:
 # -> Id
     lw $a0, -4($sp)
 # <- Id
-    jal factorial
+    jal func_factorial
 # <- Call: factorial
     sw $a0, -8($sp)
 # <- assign

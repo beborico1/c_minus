@@ -52,17 +52,12 @@ main:
 # -> Id
     lw $a0, var_x
 # <- Id
-# -> Id
-    lw $a0, -4($sp)
-# <- Id
-    addi $sp, $sp, -4
-    sw $a0, 0($sp)
+    move $t0, $a0
 # -> Id
     lw $a0, -4($sp)
 # <- Id
     move $a1, $a0
-    lw $a0, 0($sp)
-    addi $sp, $sp, 4
+    move $a0, $t0
     jal func_add
 # <- Call: add
     sw $a0, var_x
