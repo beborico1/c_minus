@@ -1,32 +1,219 @@
-# the hash table
-BucketList = {}
+# Tabla de simbolos para C- con inferencia de tipos integrada
+class SymTabEntry:
+    """Clase para manejar entradas en la tabla de simbolos"""
+    def __init__(self, name, type_spec, line_numbers, scope_level, attr=None):
+        self.name = name # Nombre del identificador
+        self.type_spec = type_spec # Tipo de dato (int, void, array)
+        self.line_numbers = line_numbers # Lista de numeros de linea
+        self.scope_level = scope_level # Nivel de ambito
+        self.attr = attr # Atributos adicionales (tamaño de array, params para funciones)
 
-# Procedure st_insert inserts line numbers and
-# memory locations into the symbol table
-# loc = memory location is inserted only the
-# first time, otherwise ignored
-def st_insert(name, lineno, loc):
-    if name in BucketList:
-        BucketList[name].append(lineno)
+# Tabla de simbolos implementada como un diccionario
+# La clave es una tupla (scope, name) para manejar ambitos
+table = {}
+scope_stack = [0] # Pila de ambitos (el primero es el global)
+current_scope = 0 # ambito actual
+scope_count = 0 # Contador para crear nuevos ambitos
+
+def st_enter_scope():
+    """Crear un nuevo ambito y hacerlo el ambito actual"""
+    global scope_count, current_scope, scope_stack
+    scope_count += 1
+    current_scope = scope_count
+    scope_stack.append(current_scope)
+    return current_scope
+
+def st_exit_scope():
+    """Salir del ambito actual y volver al ambito anterior"""
+    global current_scope, scope_stack
+    if len(scope_stack) > 1:
+        scope_stack.pop()
+        current_scope = scope_stack[-1]
+    return current_scope
+
+def st_insert(name, type_spec, lineno, attr=None):
+    """
+    Insertar un simbolo en la tabla
+    
+    Args:
+        name: Nombre del identificador
+        type_spec: Tipo de dato (int, void)
+        lineno: Numero de linea
+        attr: Atributos adicionales
+    
+    Returns:
+        True si es nueva insercion, False si ya existia
+    """
+    global table, current_scope
+    
+    # Crear clave unica para este ambito y nombre
+    key = (current_scope, name)
+    
+    # Si ya existe en el ambito actual, solo agregar el numero de linea
+    if key in table:
+        if lineno not in table[key].line_numbers:
+            table[key].line_numbers.append(lineno)
+        return False # No es una nueva insercion
     else:
-        BucketList[name] = [loc, lineno]
+        # Crear nueva entrada
+        table[key] = SymTabEntry(
+            name=name,
+            type_spec=type_spec,
+            line_numbers=[lineno],
+            scope_level=current_scope,
+            attr=attr
+        )
+        return True # Nueva insercion
 
-# Function st_lookup returns the memory 
-# location of a variable or -1 if not found
-def st_lookup(name):
-    if name in BucketList:
-        return BucketList[name][0]
-    else:
-        return -1
+def st_lookup(name, current_scope_only=False):
+    """
+    Buscar un simbolo en la tabla
+    
+    Args:
+        name: Nombre del identificador a buscar
+        current_scope_only: Si True, solo busca en el ambito actual
+    
+    Returns:
+        La entrada en la tabla de simbolos o None si no se encuentra
+    """
+    global table, current_scope, scope_stack
+    
+    # Primero buscar en el ambito actual
+    key = (current_scope, name)
+    if key in table:
+        return table[key]
+    
+    # Si solo se busca en el ambito actual o se encuentra, terminar
+    if current_scope_only:
+        return None
+    
+    # Buscar en ambitos padre (de abajo hacia arriba)
+    for scope in reversed(scope_stack[:-1]):
+        key = (scope, name)
+        if key in table:
+            return table[key]
+    
+    # No se encontro
+    return None
 
-# Procedure printSymTab prints a formatted 
-# listing of the symbol table contents 
-# to the listing file
+def st_lookup_all_scopes(name):
+    """
+    Buscar un simbolo en todos los ambitos
+    
+    Args:
+        name: Nombre del identificador a buscar
+    
+    Returns:
+        Lista de entradas en la tabla de simbolos
+    """
+    global table
+    
+    entries = []
+    for key, entry in table.items():
+        if key[1] == name:
+            entries.append(entry)
+    
+    return entries
+
 def printSymTab():
-    print("Variable Name  Location   Line Numbers")
-    print("-------------  --------   ------------")
-    for name in BucketList:
-        print(f'{name:15}{BucketList[name][0]:8d}', end = '')
-        for i in range(len(BucketList[name])-1):
-            print(f'{BucketList[name][i+1]:4d}', end = '')
-        print()
+    """Imprimir tabla de simbolos en un formato legible"""
+    global table
+    
+    print("\nTabla de simbolos:")
+    print("=" * 80)
+    print(f"{'ambito':<8}{'Nombre':<15}{'Tipo':<10}{'Lineas':<20}{'Atributos':<30}")
+    print("-" * 80)
+    
+    # Ordenar por ambito y luego por nombre
+    sorted_keys = sorted(table.keys())
+    
+    for key in sorted_keys:
+        entry = table[key]
+        attr_str = str(entry.attr) if entry.attr else ""
+        lines_str = ", ".join(map(str, entry.line_numbers))
+        print(f"{entry.scope_level:<8}{entry.name:<15}{entry.type_spec:<10}{lines_str:<20}{attr_str:<30}")
+    print("=" * 80)
+
+# ============================================================================
+# Type inference functionality (merged from type_inference.py)
+# ============================================================================
+
+from globalTypes import *
+
+def inferTypes(t):
+    """
+    Infer and set types for expression nodes
+    This should be called as a separate pass before type checking
+    """
+    if t is None:
+        return
+    
+    # First process children to get their types
+    for i in range(MAXCHILDREN):
+        if t.child[i] is not None:
+            inferTypes(t.child[i])
+    
+    # Then infer type for current node
+    if t.nodekind == NodeKind.ExpK:
+        inferExpType(t)
+    
+    # Process siblings
+    if t.sibling is not None:
+        inferTypes(t.sibling)
+
+def inferExpType(t):
+    """Infer type for expression nodes"""
+    
+    if t.exp == ExpKind.OpK:
+        # For operators, check operand types
+        if t.child[0] is not None and t.child[1] is not None:
+            # Arithmetic and comparison operators
+            if t.op in [TokenType.PLUS, TokenType.MINUS, TokenType.TIMES, TokenType.DIVIDE]:
+                t.type = ExpType.Integer
+            elif t.op in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
+                t.type = ExpType.Boolean
+            else:
+                t.type = ExpType.Integer  # Default
+        else:
+            t.type = ExpType.Integer  # Default for incomplete operators
+    
+    elif t.exp == ExpKind.ConstK:
+        # Constants are always integers in C-
+        t.type = ExpType.Integer
+    
+    elif t.exp == ExpKind.IdK:
+        # Look up variable in symbol table
+        sym = st_lookup(t.name)
+        if sym is not None:
+            if sym.attr and sym.attr.get('is_array'):
+                t.type = ExpType.Array
+            else:
+                t.type = ExpType.Integer if sym.type_spec == "int" else ExpType.Void
+        else:
+            t.type = ExpType.Integer  # Default for undeclared (error will be caught later)
+    
+    elif t.exp == ExpKind.SubscriptK:
+        # Array subscript always returns integer (element type)
+        t.type = ExpType.Integer
+    
+    elif t.exp == ExpKind.CallK:
+        # Function call - look up return type
+        sym = st_lookup(t.name)
+        if sym is not None:
+            if sym.type_spec == "void":
+                t.type = ExpType.Void
+            else:
+                t.type = ExpType.Integer
+        else:
+            t.type = ExpType.Integer  # Default for undeclared functions
+    
+    elif t.exp == ExpKind.AssignK:
+        # Assignment expression takes type of left side
+        if t.child[0] is not None:
+            t.type = getattr(t.child[0], 'type', ExpType.Integer)
+        else:
+            t.type = ExpType.Integer
+    
+    # Ensure type is set (default to Integer if not set)
+    if not hasattr(t, 'type'):
+        t.type = ExpType.Integer

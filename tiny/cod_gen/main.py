@@ -1,5 +1,4 @@
 from globalTypes import *
-#from scanner import *
 from Parser import *
 from analyze import *
 from cgen import *

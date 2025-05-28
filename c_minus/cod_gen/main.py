@@ -1,29 +1,54 @@
+# main.py
 from globalTypes import *
-#from scanner import *
 from Parser import *
 from analyze import *
+from symtab import inferTypes  # Import inferTypes from symtab
 from cgen import *
 
-fileName = "prueba"
-f = open(fileName + '.tny', 'r')
-program = f.read() 		# lee todo el archivo a compilar
-f.close()                       # cerrar el archivo con programa fuente
-progLong = len(program) 	# longitud original del programa
-program = program + '$' 	# agregar un caracter $ que represente EOF
-position = 0 			# posición del caracter actual del string
+# Get filename from command line or use default
+import sys
+if len(sys.argv) > 1:
+    fileName = sys.argv[1]
+else:
+    fileName = "sample"
 
-Error = False
-recibeParser(program, position, progLong) # para mandar los globales al parser
-syntaxTree, Error = parse(False)
+try:
+    f = open(fileName + '.c-', 'r')
+    programa = f.read()  # Read entire file to compile
+    f.close()  # Close source file
+    progLong = len(programa)  # Original program length
+    programa = programa + '$'  # Add $ character to represent EOF
+    posicion = 0  # Current character position
 
-if not(Error):
-    print()
-    print("Building Symbol Table...")
-    buildSymtab(syntaxTree, False)
-    print()
-    print("Checking Types...")
-    typeCheck(syntaxTree)
-    print()
-    print("Type Checking Finished")
-if not(Error):
-    codeGen(syntaxTree, fileName, True)
+    Error = False
+    recibeParser(programa, posicion, progLong)  # Send globals to parser
+    syntaxTree, Error = parse(False)
+
+    if not Error:
+        print()
+        print("Building Symbol Table...")
+        Error = buildSymtab(syntaxTree, True)  # Changed to True to print symbol table
+        
+        if not Error:
+            # IMPORTANT: Infer types before type checking
+            print("Inferring Types...")
+            inferTypes(syntaxTree)
+            
+            print()
+            print("Checking Types...")
+            Error = typeCheck(syntaxTree)
+            print()
+            print("Type Checking Finished")
+        
+    if not Error:
+        print()
+        print("Generating Code...")
+        codeGen(syntaxTree, fileName + ".s")
+        print(f"Code generated in {fileName}.s")
+        
+except FileNotFoundError:
+    print(f"Error: File '{fileName}.c-' not found")
+except Exception as e:
+    print(f"Error: {e}")
+    import traceback
+    traceback.print_exc()
