@@ -1,40 +1,100 @@
-# C-Minus Compiler (educational)
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.Python
+env/
+venv/
+.env
 
-<p align="center">
-  <img src="https://img.shields.io/badge/status-alpha-blue?style=flat-square"/>
-  <img src="https://img.shields.io/badge/language-Python%203.11-yellow?style=flat-square"/>
-</p>
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
-> A didactic, from-scratch compiler for the **C-–** language (subset of C).  
-> Phases implemented so far: **Lexer → Parser → Semantic Analyzer**.  
-> Codebase driven by university coursework & personal exploration.
+# Generated MIPS assembly files (except test references)
+*.s
+!tests/*.s
+!sample.s
 
----
+# C- source files (except examples and tests)
+*.c-
+!sample.c-
+!tests/*.c-
 
-## ✨ Key features
+# Output files
+*.out
+*.o
+*.exe
 
-| Phase | Highlights |
-|-------|------------|
-| **Lexer** | DFA-based scanner, support for comments `/* … */`, multi-char ops (`<=`, `!=`, `&&`, `||`). |
-| **Parser** | Hand-written recursive-descent for the full C-– grammar (functions, arrays, `if/while`, calls). |
-| **Semantic Analyzer** | <ul><li>Scope stack & symbol tables (one table per block).</li><li>Two-pass traversal (build ST → type check).</li><li>Detailed error messages with line + column & <code>^</code> caret.</li></ul> |
-| **Project structure** | Clean separation by phase & plenty of unit samples under `tasks/`. |
+# MARS/SPIM specific
+*.log
+*.dump
+Mars*.jar
 
----
+# Documentation build files
+docs/_build/
+*.pdf
+!document.pdf
 
-## 🗂️ Repository layout
+# Temporary files
+*.tmp
+*.temp
+*.bak
+.cache/
 
-```text
-├── Analizador Semántico/     # PDF slides & rubric
-├── c_minus/                  # Current C-– compiler implementation
-│   ├── globalTypes.py
-│   ├── lexer.py
-│   ├── Parser.py
-│   ├── semantica.py
-│   └── symtab.py
-├── tiny/                     # Legacy Tiny compiler (reference baseline)
-├── tasks/                    # Short programs, test cases & scripts
-├── parser_transcript.md      # Design notes
-└── projects.md               # Road-map / To-dos
-```
----
+# Test output
+test_output/
+test_results/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Project specific - intermediate compilation files
+*.tokens
+*.ast
+*.sym
+symbol_table.txt
+parse_tree.txt
+
+# Keep the file.s as it seems to be a reference file
+!file.s
+
+# Jupyter Notebook checkpoints (if used for testing)
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+
+# Editor backups
+*~
+\#*\#
+.\#*
+
+# Debug files
+*.log
+debug/
+logs/
