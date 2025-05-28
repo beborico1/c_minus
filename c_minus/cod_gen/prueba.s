@@ -85,9 +85,11 @@ main:
     addi $sp, $sp, -8
 # -> compound
 # -> assign
-# -> Const
-    li $a0, 5
-# <- Const
+# -> Call: input
+    li $v0, 5
+    syscall
+    move $a0, $v0
+# <- Call: input
     sw $a0, -4($sp)
 # <- assign
 # -> assign
