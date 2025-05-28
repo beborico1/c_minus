@@ -11,4 +11,6 @@ void main(void) {
     a = 20;
     y[0] = 30;
     b[2] = 40;
+    
+    output(y[0]);
 }
