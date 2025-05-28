@@ -794,6 +794,8 @@ def expression():
             t = newExpNode(ExpKind.SubscriptK)
             if t is not None:
                 t.name = id_name
+                # Array subscripts return integer (array elements)
+                t.type = ExpType.Integer
                 match(TokenType.LBRACKET)
                 t.child[0] = expression()  # Indice del arreglo
                 match(TokenType.RBRACKET)
@@ -883,6 +885,8 @@ def simple_expression_rest(left):
         if p is not None:
             p.child[0] = left
             p.op = token
+            # Relational and logical operators return boolean (but we use Integer)
+            p.type = ExpType.Integer
             
             # Consumimos el operador
             match(token)
@@ -928,6 +932,8 @@ def term_with_left(left):
         if p is not None:
             p.child[0] = t
             p.op = token
+            # Multiplicative operators return integer
+            p.type = ExpType.Integer
             
             # Guardar estado antes de match para depuracion
             match(token)
@@ -974,6 +980,8 @@ def additive_expression_with_left(left):
         if p is not None:
             p.child[0] = t
             p.op = token
+            # Additive operators return integer
+            p.type = ExpType.Integer
             
             match(token)
             
@@ -1033,6 +1041,8 @@ def term():
         if p is not None:
             p.child[0] = t
             p.op = token
+            # Multiplicative operators return integer
+            p.type = ExpType.Integer
             
             # Guardar estado antes de match para depuracion
             match(token)
@@ -1075,8 +1085,10 @@ def factor():
         if t is not None:
             try:
                 t.val = int(tokenString)
+                t.type = ExpType.Integer  # Constants are integers
             except ValueError:
                 t.val = 0
+                t.type = ExpType.Integer
                 syntaxError("Valor numerico invalido")
         
         match(TokenType.NUM)
@@ -1103,6 +1115,8 @@ def factor():
             
             if t is not None:
                 t.name = id_name
+                # Function calls default to integer (will be refined by semantic analysis)
+                t.type = ExpType.Integer
                 
                 match(TokenType.LPAREN)
                 t.child[0] = args()
@@ -1115,6 +1129,8 @@ def factor():
             
             if t is not None:
                 t.name = id_name
+                # Array subscripts return integer (array elements)
+                t.type = ExpType.Integer
                 
                 match(TokenType.LBRACKET)
                 t.child[0] = expression()
@@ -1127,6 +1143,8 @@ def factor():
             
             if t is not None:
                 t.name = id_name
+                # Identifiers default to integer (will be refined by semantic analysis)
+                t.type = ExpType.Integer
             
     else:
         syntaxError(f"Token inesperado en factor: {tokenString}")

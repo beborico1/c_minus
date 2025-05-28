@@ -1,0 +1,16 @@
+/* Test 0: Simple valid program */
+
+int x;
+
+int add(int a, int b) {
+    return a + b;
+}
+
+void main(void) {
+    int y;
+    
+    x = 10;
+    y = 20;
+    x = add(x, y);
+    output(x);
+}

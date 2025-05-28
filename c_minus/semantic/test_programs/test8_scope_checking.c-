@@ -1,0 +1,40 @@
+/* Test 8: Scope checking */
+
+int global;
+
+void func1(void) {
+    int local1;
+    
+    local1 = 10;
+    global = 20;      /* OK: global variable */
+}
+
+void func2(void) {
+    int local2;
+    
+    local2 = 30;
+    global = 40;      /* OK: global variable */
+    local1 = 50;      /* ERROR: local1 not in scope */
+}
+
+void main(void) {
+    int x;
+    
+    x = 1;
+    
+    if (x > 0) {
+        int y;
+        y = 2;
+        x = y;        /* OK: x is in outer scope */
+    }
+    
+    y = 3;            /* ERROR: y not in scope (was local to if block) */
+    
+    while (x < 10) {
+        int z;
+        z = x;
+        x = x + 1;
+    }
+    
+    z = 5;            /* ERROR: z not in scope (was local to while block) */
+}

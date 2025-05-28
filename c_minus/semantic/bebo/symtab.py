@@ -1,4 +1,4 @@
-# Tabla de simbolos para C-
+# Tabla de simbolos para C- con inferencia de tipos integrada
 class SymTabEntry:
     """Clase para manejar entradas en la tabla de simbolos"""
     def __init__(self, name, type_spec, line_numbers, scope_level, attr=None):
@@ -133,3 +133,87 @@ def printSymTab():
         lines_str = ", ".join(map(str, entry.line_numbers))
         print(f"{entry.scope_level:<8}{entry.name:<15}{entry.type_spec:<10}{lines_str:<20}{attr_str:<30}")
     print("=" * 80)
+
+# ============================================================================
+# Type inference functionality (merged from type_inference.py)
+# ============================================================================
+
+from globalTypes import *
+
+def inferTypes(t):
+    """
+    Infer and set types for expression nodes
+    This should be called as a separate pass before type checking
+    """
+    if t is None:
+        return
+    
+    # First process children to get their types
+    for i in range(MAXCHILDREN):
+        if t.child[i] is not None:
+            inferTypes(t.child[i])
+    
+    # Then infer type for current node
+    if t.nodekind == NodeKind.ExpK:
+        inferExpType(t)
+    
+    # Process siblings
+    if t.sibling is not None:
+        inferTypes(t.sibling)
+
+def inferExpType(t):
+    """Infer type for expression nodes"""
+    
+    if t.exp == ExpKind.OpK:
+        # For operators, check operand types
+        if t.child[0] is not None and t.child[1] is not None:
+            # Arithmetic and comparison operators
+            if t.op in [TokenType.PLUS, TokenType.MINUS, TokenType.TIMES, TokenType.DIVIDE]:
+                t.type = ExpType.Integer
+            elif t.op in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
+                t.type = ExpType.Boolean
+            else:
+                t.type = ExpType.Integer  # Default
+        else:
+            t.type = ExpType.Integer  # Default for incomplete operators
+    
+    elif t.exp == ExpKind.ConstK:
+        # Constants are always integers in C-
+        t.type = ExpType.Integer
+    
+    elif t.exp == ExpKind.IdK:
+        # Look up variable in symbol table
+        sym = st_lookup(t.name)
+        if sym is not None:
+            if sym.attr and sym.attr.get('is_array'):
+                t.type = ExpType.Array
+            else:
+                t.type = ExpType.Integer if sym.type_spec == "int" else ExpType.Void
+        else:
+            t.type = ExpType.Integer  # Default for undeclared (error will be caught later)
+    
+    elif t.exp == ExpKind.SubscriptK:
+        # Array subscript always returns integer (element type)
+        t.type = ExpType.Integer
+    
+    elif t.exp == ExpKind.CallK:
+        # Function call - look up return type
+        sym = st_lookup(t.name)
+        if sym is not None:
+            if sym.type_spec == "void":
+                t.type = ExpType.Void
+            else:
+                t.type = ExpType.Integer
+        else:
+            t.type = ExpType.Integer  # Default for undeclared functions
+    
+    elif t.exp == ExpKind.AssignK:
+        # Assignment expression takes type of left side
+        if t.child[0] is not None:
+            t.type = getattr(t.child[0], 'type', ExpType.Integer)
+        else:
+            t.type = ExpType.Integer
+    
+    # Ensure type is set (default to Integer if not set)
+    if not hasattr(t, 'type'):
+        t.type = ExpType.Integer

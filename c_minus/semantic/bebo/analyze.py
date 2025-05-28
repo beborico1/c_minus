@@ -153,9 +153,14 @@ def checkExp(t):
             t.type = ExpType.Integer  # Asumir tipo por defecto
             return
             
-        # Inferencia automatica de tipo para operandos enteros en C-minus
-        t.child[0].type = ExpType.Integer
-        t.child[1].type = ExpType.Integer
+        # Verificar que ambos operandos sean enteros
+        left_type = getattr(t.child[0], 'type', None)
+        right_type = getattr(t.child[1], 'type', None)
+        
+        if left_type != ExpType.Integer:
+            error(t.lineno, f"Operando izquierdo del operador {t.op.name} debe ser entero")
+        if right_type != ExpType.Integer:
+            error(t.lineno, f"Operando derecho del operador {t.op.name} debe ser entero")
             
         # Establecer el tipo resultante segun el operador
         if t.op in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
@@ -164,20 +169,18 @@ def checkExp(t):
             t.type = ExpType.Integer
     
     elif t.exp == ExpKind.ConstK:
-        # Las constantes son enteras en C-
-        t.type = ExpType.Integer
+        # Las constantes ya tienen su tipo asignado por el parser/type inference
+        # Solo verificar que sea correcto
+        if not hasattr(t, 'type') or t.type != ExpType.Integer:
+            t.type = ExpType.Integer
     
     elif t.exp == ExpKind.IdK:
-        # Buscar el identificador en la tabla de simbolos
+        # Los identificadores ya tienen su tipo asignado por type inference
+        # Solo verificar que el identificador esté declarado
         sym = st_lookup(t.name)
-        if sym is not None:
-            # Verificar si es un arreglo sin indice
-            if sym.attr and sym.attr.get('is_array'):
-                t.type = ExpType.Array
-            else:
-                t.type = ExpType.Integer if sym.type_spec == "int" else ExpType.Void
-        else:
-            t.type = ExpType.Void  # Tipo por defecto si hay error
+        if sym is None:
+            error(t.lineno, f"Identificador '{t.name}' no declarado")
+            # Don't reset the type - keep the one from type inference
     
     elif t.exp == ExpKind.SubscriptK:
         # Verificar acceso a arreglo
@@ -191,8 +194,9 @@ def checkExp(t):
                 
             # Verificar que el indice sea entero
             if t.child[0] is not None:
-                # En C-minus, los indices de arreglos deben ser enteros
-                t.child[0].type = ExpType.Integer
+                idx_type = getattr(t.child[0], 'type', None)
+                if idx_type != ExpType.Integer:
+                    error(t.lineno, "El indice del arreglo debe ser entero")
         else:
             t.type = ExpType.Integer  # Tipo por defecto si hay error
     
@@ -225,9 +229,14 @@ def checkExp(t):
                     if arg is None:
                         break
                     
-                    # Todos los argumentos en C-minus deben ser de tipo entero
-                    # En C-minus, los argumentos se tipan automaticamente como enteros
-                    arg.type = ExpType.Integer
+                    # Verificar tipo del argumento
+                    param_type = param.get('type', 'int') if isinstance(param, dict) else (
+                        'int' if param.type == ExpType.Integer else 'void'
+                    )
+                    
+                    arg_type = getattr(arg, 'type', None)
+                    if param_type == 'int' and arg_type != ExpType.Integer:
+                        error(t.lineno, f"Argumento {i+1} debe ser entero")
                     
                     # Continuar con la verificacion de arreglos
                     # Verificar si param es un dict o un TreeNode
@@ -258,16 +267,16 @@ def checkStmt(t):
     if t.stmt == StmtKind.IfK:
         # Verificar que la condicion sea booleana
         if t.child[0] is not None:
-            # En C-minus las condiciones se convierten implicitamente a booleano
-            # Establecer el tipo a Boolean para evitar errores
-            t.child[0].type = ExpType.Boolean
+            cond_type = getattr(t.child[0], 'type', None)
+            if cond_type is not None and cond_type != ExpType.Boolean and cond_type != ExpType.Integer:
+                error(t.lineno, "La condicion del if debe ser booleana o entera")
     
     elif t.stmt == StmtKind.WhileK:
         # Verificar que la condicion sea booleana
         if t.child[0] is not None:
-            # En C-minus las condiciones se convierten implicitamente a booleano
-            # Establecer el tipo a Boolean para evitar errores
-            t.child[0].type = ExpType.Boolean
+            cond_type = getattr(t.child[0], 'type', None)
+            if cond_type is not None and cond_type != ExpType.Boolean and cond_type != ExpType.Integer:
+                error(t.lineno, "La condicion del while debe ser booleana o entera")
     
     elif t.stmt == StmtKind.AssignK:
         # Verificar asignacion
@@ -277,8 +286,10 @@ def checkStmt(t):
         if t.child[0].exp == ExpKind.SubscriptK:
             # Asignacion a elemento de arreglo
             if t.child[1] is not None:
-                # En C-minus, todas las expresiones asignadas a elementos de arreglo son enteros
-                t.child[1].type = ExpType.Integer
+                # Verificar que el valor asignado sea entero
+                val_type = getattr(t.child[1], 'type', None)
+                if val_type != ExpType.Integer:
+                    error(t.lineno, "Solo se pueden asignar valores enteros a elementos de arreglo")
         
         elif t.child[0].exp == ExpKind.IdK:
             # Asignacion a variable
@@ -290,8 +301,10 @@ def checkStmt(t):
                 
                 # Verificar tipo
                 if t.child[1] is not None:
-                    # En C-minus, todas las expresiones asignadas a variables son enteros
-                    t.child[1].type = ExpType.Integer
+                    var_type = ExpType.Integer if sym.type_spec == "int" else ExpType.Void
+                    val_type = getattr(t.child[1], 'type', None)
+                    if var_type == ExpType.Integer and val_type != ExpType.Integer:
+                        error(t.lineno, f"No se puede asignar un valor no entero a la variable entera '{t.child[0].name}'")
     
     elif t.stmt == StmtKind.ReturnK:
         # Verificar retorno
@@ -304,9 +317,9 @@ def checkStmt(t):
             if function_return_type == ExpType.Void:
                 error(t.lineno, "Retorno con valor en funcion void")
             else:
-                # En C-minus, todos los valores de retorno son enteros
-                # Establecer el tipo a Integer para evitar errores
-                t.child[0].type = ExpType.Integer
+                ret_type = getattr(t.child[0], 'type', None)
+                if function_return_type == ExpType.Integer and ret_type != ExpType.Integer:
+                    error(t.lineno, "El valor de retorno debe ser entero")
 
 def checkDecl(t):
     """Verifica tipos para nodos de declaracion"""
@@ -352,7 +365,7 @@ def typeCheck(syntaxTree):
     """
     global Error
     
-    # Segundo recorrido: verificar tipos
+    # Types should already be inferred by main, just verify them
     traverse(syntaxTree, nullProc, checkNode)
     
     return Error

@@ -1,3 +1,0 @@
-Verifica bien variables no declaradas.
-
-No verifica tipos mal asignados.

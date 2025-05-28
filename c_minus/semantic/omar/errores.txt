@@ -1,2 +1,0 @@
-Todas las variables me las marcó como no declaradas.
-Detecta errores de tipo donde no los hay.

@@ -70,13 +70,15 @@ def newExpNode(kind, name=None, val=None):
 
 def parser(imprime=True):
     getNextToken()
-    decl_list = declaration_list()
-    # Crea un nodo raíz especial para la lista de declaraciones
-    root = newStmtNode(None)
-    root.child[0] = decl_list
-    if imprime:
-        printTree(root)
-    return root
+    ast = declaration_list()
+    
+    # Check if we've consumed all tokens
+    if saved_token != TokenType.ENDFILE:
+        syntaxError(f"Unexpected token after program: {saved_token.name}")
+    
+    if imprime and ast:
+        printTree(ast)
+    return ast
 
 def printTree(t, indent=0):
     while t is not None:
@@ -85,7 +87,7 @@ def printTree(t, indent=0):
             if t.stmt is not None:
                 print(f"Stmt: {t.stmt.name}")
             else:
-                print("DeclList")
+                print("Stmt: Unknown")
         elif t.nodekind == NodeKind.ExpK:
             if t.exp == ExpKind.ConstK:
                 print(f"Const: {t.val}")

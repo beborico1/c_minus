@@ -1,7 +1,10 @@
 from globalTypes import *
 from Parser import recibeParser, parse
 from semantica import *
+from symtab import inferTypes  # Import from symtab instead of type_inference
 import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Obtener nombre de archivo desde el argumento de la linea de comandos
 if len(sys.argv) > 1:
@@ -26,6 +29,11 @@ try:
 
     if not(Error):
         print("\nAnalizando semantica...")
+        
+        # Run type inference first to set expression types
+        print("Infiriendo tipos de expresiones...")
+        inferTypes(syntaxTree)
+        
         semantica(syntaxTree, True)
 except FileNotFoundError:
     print(f"Error: No se pudo encontrar el archivo '{fileName}.c-'")

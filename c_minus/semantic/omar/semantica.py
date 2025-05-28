@@ -1,313 +1,396 @@
 # -----------------------------------------------------------------------------
 # semantica.py
 #
-# Implementación del análisis semántico para C-
-# Incluye llenado e impresión de tabla de símbolos y chequeo de tipos.
+# Análisis semántico consolidado para C-
+# Combina funcionalidad de semantica.py y semantica_fixed.py
+# Incluye todas las correcciones para el manejo adecuado de tipos y scopes
+#
 # Autor: Omar Rivera Arenas
 # -----------------------------------------------------------------------------
 
 from globalTypes import *
-from lexer import lineno, programa, get_line_text, posicion
-from symtab import SymbolEntry, st_enter_scope, st_exit_scope, current_scope, scope_stack, scopes_done
+from symtab import *
 import copy
 
-# Tabla de símbolos global (stack de scopes)
-# Estructura de símbolo
-class Symbol:
-    def __init__(self, name, kind, typ, lineno, is_array=False, size=None, params=None, return_type=None):
-        self.name = name
-        self.kind = kind  # 'var', 'func', 'param', etc.
-        self.typ = typ    # TokenType.INT, TokenType.VOID, etc.
-        self.lineno = lineno
-        self.is_array = is_array
-        self.size = size
-        self.params = params if params is not None else []
-        self.return_type = return_type
-        self.lines = [lineno]  # Líneas donde se usa
+# Variables globales para el análisis
+Error = False
+current_function = None
+function_return_type = None
 
-class ErrorTypeClass:
+def error(lineno, message):
+    """Reportar un error semántico"""
+    global Error
+    Error = True
+    print(f">>> Error semántico en línea {lineno}: {message}")
+
+def traverse(t, preProc, postProc):
+    """
+    Recorrido genérico del árbol sintáctico:
+    - preProc se aplica en preorden
+    - postProc se aplica en postorden
+    """
+    if t is not None:
+        preProc(t)
+        # Recorrer hijos
+        for i in range(MAXCHILDREN):
+            if t.child[i] is not None:
+                traverse(t.child[i], preProc, postProc)
+        postProc(t)
+        # Recorrer hermanos
+        traverse(t.sibling, preProc, postProc)
+
+def nullProc(t):
+    """Procedimiento que no hace nada"""
     pass
-ErrorType = ErrorTypeClass()
-
-def report_error(lineno, col, msg):
-    """Imprime error con línea fuente y caret bajo la columna."""
-    # Buscar inicio y fin de la línea
-    lines = programa.split('\n')
-    if 1 <= lineno <= len(lines):
-        line_text = lines[lineno-1]
-    else:
-        line_text = ""
-    print(f"\n>> Error semántico (línea {lineno}, col {col}): {msg}")
-    print(line_text)
-    print(' ' * (col - 1) + '^')
-
-def stringify(token_or_type):
-    # Acepta TokenType / ExpType / NodeKind y devuelve solo el nombre
-    return token_or_type.name if hasattr(token_or_type, "name") else str(token_or_type)
-
-def printSymTab():
-    from symtab import scopes_done
-    print("\n--- Tabla de símbolos por scope ---")
-    for level, table in enumerate(scopes_done):
-        print(f"\nScope {level} (nivel {level}):")
-        print(f"{'Nombre':<12}{'Tipo':<8}{'Kind':<9}{'Atributos':<25}{'Líneas':<15}")
-        for e in table.values():
-            tipo  = e.typ.name if hasattr(e.typ,"name") else (str(e.typ) if e.typ is not None else "")
-            kind  = e.kind if e.kind is not None else ""
-            attrs = []
-            if kind == 'func':
-                params = ','.join(p[0].name + ('[]' if p[1] else '') for p in e.params)
-                attrs.append(f"params({params}) -> {e.return_type.name if hasattr(e.return_type,'name') else e.return_type}")
-            elif e.is_array:
-                attrs.append(f"array[{e.size}]")
-            print(f"{e.name:<12}{tipo:<8}{kind:<9}{' '.join(attrs):<25}{e.lines}")
-    print("\n--- Fin tabla de símbolos ---")
-
-
-def tabla(tree, imprime=True):
-    """Recorre el AST, llena e imprime la tabla de símbolos por scope."""
-    global scope_stack, scopes_done
-    from symtab import scope_stack, scopes_done
-    scope_stack = [{}]
-    scopes_done.clear()
-    build_symtab(tree)
-    if imprime:
-        printSymTab()
-
-def es_inicio_de_nuevo_scope(t):
-    return hasattr(t, 'nodekind') and t.nodekind == NodeKind.StmtK and hasattr(t, 'stmt') and t.stmt == StmtKind.CompoundK
-
-def es_fin_de_scope(t):
-    return es_inicio_de_nuevo_scope(t)
-
-def traverse(node, insertNode, exitNode):
-    if node is None:
-        return
-    insertNode(node)
-    for child in getattr(node, 'child', []):
-        traverse(child, insertNode, exitNode)
-    exitNode(node)
-
-def build_symtab(tree):
-    global scope_stack, scopes_done
-    scope_stack = [{}]  # Scope 0 vive todo el tiempo
-    scopes_done = []
-    tree.is_global = True
-    traverse(tree, insertNode, exitNode)
 
 def insertNode(t):
-    from symtab import st_insert, st_enter_scope
-    # FUNCIÓN (CompoundK con nombre y tipo)
-    if (t.nodekind == NodeKind.StmtK
-        and t.stmt == StmtKind.CompoundK
-        and getattr(t, "name", None)
-        and getattr(t, "return_type", None)):
-        st_insert(
-            name=t.name,
-            kind='func',
-            typ=t.return_type,
-            params=[(p['typ'], p['is_array']) for p in t.params],
-            return_type=t.return_type,
-            lineno=t.lineno
-        )
-        st_enter_scope()
-        return
-    elif t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.VarDeclK:
-        st_insert(
-            name=t.name,
-            kind='var',
-            typ=getattr(t, 'var_type', None),
-            lineno=t.lineno
-        )
-    # BLOQUE compuesto normal (no global, no función, no cuerpo de función)
-    elif (t.nodekind == NodeKind.StmtK and
-          t.stmt == StmtKind.CompoundK and
-          not getattr(t, "is_global", False) and not getattr(t, "name", None) and not getattr(t, "return_type", None) and not getattr(t, "is_func_body", False)):
-        st_enter_scope()
-    # Uso de identificador
-    if hasattr(t, 'exp') and t.exp == ExpKind.IdK and hasattr(t, 'name') and t.name:
-        entry = None
-        for scope in reversed(scope_stack):
-            if t.name in scope:
-                entry = scope[t.name]
-                break
-        if entry:
-            if t.lineno not in entry.lines:
-                entry.lines.append(t.lineno)
+    """Inserta nodos en la tabla de símbolos durante la primera pasada"""
+    global current_function, function_return_type, Error
+    
+    if t.nodekind == NodeKind.StmtK:
+        # Declaración de variable
+        if t.stmt == StmtKind.VarDeclK:
+            # Verificar si ya existe en el scope actual
+            if st_lookup_current_scope(t.name) is not None:
+                error(t.lineno, f"Variable '{t.name}' ya declarada en este ámbito")
+            else:
+                # Verificar que las variables no sean void
+                var_type = getattr(t, 'var_type', getattr(t, 'typ', ExpType.Integer))
+                if var_type == ExpType.Void and not getattr(t, 'is_array', False):
+                    error(t.lineno, f"Variable '{t.name}' no puede ser de tipo void")
+                
+                st_insert(
+                    name=t.name,
+                    kind='var',
+                    typ=var_type,
+                    is_array=getattr(t, 'is_array', False),
+                    size=getattr(t, 'array_size', None),
+                    lineno=t.lineno
+                )
+        
+        # Declaración de función
+        elif t.stmt == StmtKind.CompoundK and hasattr(t, 'name') and hasattr(t, 'return_type'):
+            # Es una función
+            if st_lookup_current_scope(t.name) is not None:
+                error(t.lineno, f"Función '{t.name}' ya declarada")
+            else:
+                current_function = t.name
+                function_return_type = t.return_type
+                
+                # Procesar parámetros
+                params = []
+                if hasattr(t, 'params'):
+                    for param in t.params:
+                        if isinstance(param, dict):
+                            params.append((param.get('typ', ExpType.Integer), param.get('is_array', False)))
+                        else:
+                            params.append((getattr(param, 'typ', ExpType.Integer), getattr(param, 'is_array', False)))
+                
+                st_insert(
+                    name=t.name,
+                    kind='func',
+                    typ=t.return_type,
+                    params=params,
+                    return_type=t.return_type,
+                    lineno=t.lineno
+                )
+                
+                # Crear nuevo ámbito para la función
+                st_enter_scope()
+                
+                # Insertar parámetros en el nuevo ámbito
+                # Los nombres de parámetros están en child[0] como nodos IdK
+                if t.child[0] is not None:
+                    param_node = t.child[0]
+                    param_index = 0
+                    while param_node is not None:
+                        if param_node.nodekind == NodeKind.ExpK and param_node.exp == ExpKind.IdK:
+                            # Obtener tipo del parámetro correspondiente
+                            param_type = ExpType.Integer  # Default
+                            is_array = False
+                            
+                            if hasattr(t, 'params') and param_index < len(t.params):
+                                if isinstance(t.params[param_index], dict):
+                                    param_type = t.params[param_index].get('typ', ExpType.Integer)
+                                    is_array = t.params[param_index].get('is_array', False)
+                                else:
+                                    param_type = getattr(t.params[param_index], 'typ', ExpType.Integer)
+                                    is_array = getattr(t.params[param_index], 'is_array', False)
+                            
+                            if param_type == ExpType.Void and not is_array:
+                                if hasattr(t, 'params') and len(t.params) > 1:
+                                    error(t.lineno, f"Parámetro '{param_node.name}' no puede ser de tipo void")
+                            
+                            st_insert(
+                                name=param_node.name,
+                                kind='param',
+                                typ=param_type,
+                                is_array=is_array,
+                                lineno=t.lineno
+                            )
+                            param_index += 1
+                        
+                        param_node = param_node.sibling
+        
+        # Bloque compuesto (no función)
+        elif t.stmt == StmtKind.CompoundK and not hasattr(t, 'name'):
+            # Solo crear nuevo scope si no es el cuerpo de una función
+            if not hasattr(t, 'is_func_body'):
+                st_enter_scope()
+    
+    elif t.nodekind == NodeKind.ExpK:
+        # Uso de identificador
+        if t.exp in [ExpKind.IdK, ExpKind.CallK, ExpKind.SubscriptK]:
+            # Buscar en todos los scopes
+            sym = st_lookup(t.name)
+            if sym is None:
+                error(t.lineno, f"Identificador '{t.name}' no declarado")
+            else:
+                # Agregar línea de uso
+                if hasattr(sym, 'lines') and t.lineno not in sym.lines:
+                    sym.lines.append(t.lineno)
 
-def exitNode(t):
-    from symtab import st_exit_scope
-    if (t.nodekind == NodeKind.StmtK and
-        t.stmt == StmtKind.CompoundK and
-        not getattr(t, "is_global", False)):
-        st_exit_scope()
+def exitScope(t):
+    """Maneja la salida de ámbitos durante la primera pasada"""
+    global current_function, function_return_type
+    
+    if t.nodekind == NodeKind.StmtK:
+        if t.stmt == StmtKind.CompoundK:
+            # Si es una función, salir del scope
+            if hasattr(t, 'name') and hasattr(t, 'return_type'):
+                st_exit_scope()
+                current_function = None
+                function_return_type = None
+            # Si es un bloque compuesto normal
+            elif not hasattr(t, 'is_func_body'):
+                st_exit_scope()
 
-def symtab_insert(name, kind, typ, lineno, is_array=False, size=None, params=None, return_type=None):
-    if not scope_stack:
-        scope_stack.append({})
-    current_scope = scope_stack[-1]
-    if name in current_scope:
-        print_semantic_error(f"Identificador '{name}' ya declarado en este scope", lineno, name)
-    else:
-        current_scope[name] = Symbol(name, kind, typ, lineno, is_array, size, params, return_type)
+def checkNode(t):
+    """Realiza verificación de tipos en un nodo durante la segunda pasada"""
+    global Error
+    
+    if t.nodekind == NodeKind.ExpK:
+        checkExp(t)
+    elif t.nodekind == NodeKind.StmtK:
+        checkStmt(t)
 
-def print_semantic_error(msg, lineno, lexema):
-    # Buscar la columna del lexema en la línea fuente
-    lines = programa.split('\n')
-    if 1 <= lineno <= len(lines):
-        line_text = lines[lineno-1]
-        col = line_text.find(str(lexema)) + 1 if lexema and str(lexema) in line_text else 1
-    else:
-        col = 1
-    report_error(lineno, col, msg)
+def checkExp(t):
+    """Verifica tipos para nodos de expresión"""
+    global Error
+    
+    if t.exp == ExpKind.OpK:
+        # Verificar operadores
+        if t.child[0] is None or t.child[1] is None:
+            error(t.lineno, "Operador necesita dos operandos")
+            t.type = ExpType.Integer
+            return
+        
+        # Verificar tipos de operandos
+        if t.op in [TokenType.PLUS, TokenType.MINUS, TokenType.TIMES, TokenType.DIVIDE]:
+            # Operadores aritméticos requieren enteros
+            if t.child[0].type != ExpType.Integer:
+                error(t.lineno, f"Operando izquierdo del operador {t.op.name} debe ser entero")
+            if t.child[1].type != ExpType.Integer:
+                error(t.lineno, f"Operando derecho del operador {t.op.name} debe ser entero")
+            t.type = ExpType.Integer
+        
+        elif t.op in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
+            # Operadores de comparación
+            if t.child[0].type != ExpType.Integer:
+                error(t.lineno, f"Operando izquierdo del comparador {t.op.name} debe ser entero")
+            if t.child[1].type != ExpType.Integer:
+                error(t.lineno, f"Operando derecho del comparador {t.op.name} debe ser entero")
+            t.type = ExpType.Boolean
+        
+        elif t.op == TokenType.ASSIGN:
+            # Assignment operator
+            if t.child[0] is None or t.child[1] is None:
+                return
+            
+            left = t.child[0]
+            right = t.child[1]
+            
+            # El lado izquierdo debe ser una variable o elemento de arreglo
+            if left.exp == ExpKind.SubscriptK:
+                # Asignación a elemento de arreglo
+                if right.type != ExpType.Integer:
+                    error(t.lineno, "Solo se pueden asignar valores enteros a elementos de arreglo")
+            
+            elif left.exp == ExpKind.IdK:
+                # Asignación a variable
+                sym = st_lookup(left.name)
+                if sym is not None:
+                    if getattr(sym, 'is_array', False):
+                        error(t.lineno, f"No se puede asignar a un arreglo completo '{left.name}'")
+                    elif getattr(sym, 'typ', ExpType.Integer) == ExpType.Integer and right.type != ExpType.Integer:
+                        error(t.lineno, f"No se puede asignar un valor no entero a la variable entera '{left.name}'")
+    
+    elif t.exp == ExpKind.ConstK:
+        # Las constantes son siempre enteras
+        t.type = ExpType.Integer
+    
+    elif t.exp == ExpKind.IdK:
+        # Set identifier type based on symbol table lookup
+        sym = st_lookup(t.name)
+        if sym is not None:
+            if getattr(sym, 'is_array', False):
+                t.type = ExpType.Array
+            else:
+                # Convert type to expression type
+                sym_type = getattr(sym, 'typ', ExpType.Integer)
+                if sym_type == ExpType.Integer:
+                    t.type = ExpType.Integer
+                elif sym_type == ExpType.Void:
+                    t.type = ExpType.Void
+                else:
+                    t.type = ExpType.Integer  # Default
+        else:
+            # Identifier not found - error already reported in first pass
+            t.type = ExpType.Integer  # Default to avoid cascading errors
+    
+    elif t.exp == ExpKind.SubscriptK:
+        # Acceso a arreglo
+        sym = st_lookup(t.name)
+        if sym is not None:
+            if not getattr(sym, 'is_array', False):
+                error(t.lineno, f"'{t.name}' no es un arreglo")
+                t.type = ExpType.Integer
+            else:
+                t.type = ExpType.Integer  # Elementos del arreglo son enteros
+                
+                # Verificar que el índice sea entero
+                if t.child[0] is not None and t.child[0].type != ExpType.Integer:
+                    error(t.lineno, "El índice del arreglo debe ser entero")
+        else:
+            t.type = ExpType.Integer  # Error ya reportado
+    
+    elif t.exp == ExpKind.CallK:
+        # Llamada a función
+        sym = st_lookup(t.name)
+        if sym is not None:
+            if getattr(sym, 'kind', '') != 'func':
+                error(t.lineno, f"'{t.name}' no es una función")
+                t.type = ExpType.Integer
+            else:
+                # Establecer tipo de retorno
+                return_type = getattr(sym, 'return_type', ExpType.Integer)
+                t.type = ExpType.Integer if return_type == ExpType.Integer else ExpType.Void
+                
+                # Verificar argumentos
+                expected_params = getattr(sym, 'params', [])
+                actual_args = []
+                arg = t.child[0]
+                while arg is not None:
+                    actual_args.append(arg)
+                    arg = arg.sibling
+                
+                if len(actual_args) != len(expected_params):
+                    error(t.lineno, f"Función '{t.name}' espera {len(expected_params)} argumentos, pero recibió {len(actual_args)}")
+                else:
+                    # Verificar tipos de argumentos
+                    for i, (arg_node, param_info) in enumerate(zip(actual_args, expected_params)):
+                        param_type = param_info[0] if isinstance(param_info, tuple) else param_info
+                        param_is_array = param_info[1] if isinstance(param_info, tuple) and len(param_info) > 1 else False
+                        
+                        if param_type == ExpType.Integer and arg_node.type != ExpType.Integer:
+                            error(t.lineno, f"Argumento {i+1} debe ser entero")
+                        
+                        # Verificar arreglos
+                        if param_is_array:
+                            if arg_node.exp != ExpKind.IdK:
+                                error(t.lineno, f"Argumento {i+1} debe ser un arreglo")
+                            else:
+                                # Buscar el símbolo del argumento
+                                arg_sym = st_lookup(arg_node.name)
+                                if arg_sym is None or not getattr(arg_sym, 'is_array', False):
+                                    error(t.lineno, f"Argumento {i+1} debe ser un arreglo")
+        else:
+            t.type = ExpType.Integer  # Error ya reportado
+
+def checkStmt(t):
+    """Verifica tipos para nodos de sentencia"""
+    global Error, function_return_type
+    
+    if t.stmt == StmtKind.IfK:
+        # Verificar condición
+        if t.child[0] is not None:
+            if t.child[0].type != ExpType.Boolean and t.child[0].type != ExpType.Integer:
+                error(t.lineno, "La condición del if debe ser booleana o entera")
+    
+    elif t.stmt == StmtKind.WhileK:
+        # Verificar condición
+        if t.child[0] is not None:
+            if t.child[0].type != ExpType.Boolean and t.child[0].type != ExpType.Integer:
+                error(t.lineno, "La condición del while debe ser booleana o entera")
+    
+    elif t.stmt == StmtKind.ReturnK:
+        # Verificar retorno
+        if t.child[0] is None:
+            # Retorno vacío
+            if function_return_type != ExpType.Void:
+                error(t.lineno, "Retorno sin valor en función no void")
+        else:
+            # Retorno con valor
+            if function_return_type == ExpType.Void:
+                error(t.lineno, "Retorno con valor en función void")
+            elif function_return_type == ExpType.Integer and t.child[0].type != ExpType.Integer:
+                error(t.lineno, "El valor de retorno debe ser entero")
+
+def tabla(tree, imprime=True):
+    """Construye la tabla de símbolos"""
+    global Error
+    Error = False
+    
+    # Reset symbol table
+    st_reset()
+    
+    # Registrar funciones predefinidas
+    st_insert(
+        name="input",
+        kind='func',
+        typ=ExpType.Integer,
+        params=[],
+        return_type=ExpType.Integer,
+        lineno=0
+    )
+    st_insert(
+        name="output",
+        kind='func',
+        typ=ExpType.Void,
+        params=[(ExpType.Integer, False)],
+        return_type=ExpType.Void,
+        lineno=0
+    )
+    
+    # Primera pasada: construir tabla de símbolos
+    traverse(tree, insertNode, exitScope)
+    
+    if imprime:
+        print_symtab()
+    
+    return Error
+
+def type_check(tree):
+    """Realiza la verificación de tipos"""
+    global Error
+    
+    # Segunda pasada: verificar tipos
+    traverse(tree, nullProc, checkNode)
+    
+    return Error
 
 def semantica(tree, imprime=True):
-    """Función principal: tabla + chequeo de tipos (con errores de tipo)."""
-    tabla(tree, imprime)
-    type_check(tree)
-
-def lookup_symbol(name):
-    for scope in reversed(scope_stack):  # Busca desde el scope actual hacia el global
-        if name in scope:
-            return scope[name]
-    return None
-
-def type_check(node, current_func=None):
-    if node is None:
-        return ErrorType
-    tipos = []
-    for child in node.child:
-        tipos.append(type_check(child, current_func))
-
-    # --- Expresiones aritméticas ---
-    if node.nodekind == NodeKind.ExpK and node.exp == ExpKind.OpK:
-        if node.op in (TokenType.PLUS, TokenType.MINUS, TokenType.TIMES, TokenType.DIVIDE):
-            if all(t == ExpType.Integer for t in tipos):
-                return ExpType.Integer
-            else:
-                report_error(node.lineno, getattr(node, 'column', 1), "Operadores aritméticos requieren enteros")
-                return ErrorType
-        if node.op in (TokenType.LT, TokenType.GT, TokenType.LTE, TokenType.GTE, TokenType.EQ, TokenType.NEQ):
-            if all(t == ExpType.Integer for t in tipos):
-                return ExpType.Boolean
-            else:
-                report_error(node.lineno, getattr(node, 'column', 1), "Comparadores requieren enteros")
-                return ErrorType
-        if node.op == TokenType.ASSIGN:
-            left_type = tipos[0]
-            right_type = tipos[1]
-            if left_type != ExpType.Integer or right_type != ExpType.Integer:
-                report_error(node.lineno, getattr(node, 'column', 1), "Tipo incompatible en asignación")
-                return ErrorType
-            return ExpType.Integer
-
-    # --- Constantes ---
-    if node.nodekind == NodeKind.ExpK and node.exp == ExpKind.ConstK:
-        return ExpType.Integer
-
-    # --- Acceso a arreglo: SubscriptK ---
-    if node.nodekind == NodeKind.ExpK and node.exp == ExpKind.SubscriptK:
-        from symtab import scope_stack
-        entry = None
-        for scope in reversed(scope_stack):
-            if node.name in scope:
-                entry = scope[node.name]
-                break
-        if entry is None:
-            report_error(node.lineno, getattr(node, 'column', 1), f"Variable '{node.name}' no declarada")
-            return ErrorType
-        if not getattr(entry, 'is_array', False):
-            report_error(node.lineno, getattr(node, 'column', 1), f"'{node.name}' no es un arreglo")
-            return ErrorType
-        # Chequea que el índice sea int
-        idx_type = type_check(node.child[0], current_func)
-        if idx_type != ExpType.Integer:
-            report_error(node.lineno, getattr(node, 'column', 1), "Índice de arreglo debe ser entero")
-            return ErrorType
-        return ExpType.Integer  # Tipo base del arreglo
-
-    # --- Identificadores (variables simples) ---
-    if node.nodekind == NodeKind.ExpK and node.exp == ExpKind.IdK:
-        from symtab import scope_stack
-        entry = None
-        for scope in reversed(scope_stack):
-            if node.name in scope:
-                entry = scope[node.name]
-                break
-        if entry:
-            # Acceso a arreglo: node.child[0] es el índice
-            if entry.is_array:
-                if node.child[0] is not None:
-                    idx_type = type_check(node.child[0], current_func)
-                    if idx_type != ExpType.Integer:
-                        report_error(node.lineno, getattr(node, 'column', 1), "Índice de arreglo debe ser entero")
-                        return ErrorType
-                    return ExpType.Integer  # Acceso a elemento
-                else:
-                    return ExpType.Integer  # Referencia al arreglo completo
-            else:
-                if node.child[0] is not None:
-                    report_error(node.lineno, getattr(node, 'column', 1), "Variable no es arreglo, no se puede indexar")
-                    return ErrorType
-                return ExpType.Integer
-        else:
-            report_error(node.lineno, getattr(node, 'column', 1), f"Variable '{node.name}' no declarada")
-            return ErrorType
-
-    # --- Llamadas a función ---
-    if node.nodekind == NodeKind.ExpK and node.exp == ExpKind.CallK:
-        from symtab import scope_stack
-        entry = None
-        for scope in reversed(scope_stack):
-            if node.name in scope:
-                entry = scope[node.name]
-                break
-        if entry is None or entry.kind != 'func':
-            report_error(node.lineno, getattr(node, 'column', 1), f"Función '{node.name}' no declarada")
-            return ErrorType
-        # Verificar argumentos
-        expected_params = entry.params
-        actual_args = []
-        arg = node.child[0]
-        while arg is not None:
-            actual_args.append(arg)
-            arg = arg.sibling
-        if len(actual_args) != len(expected_params):
-            report_error(node.lineno, getattr(node, 'column', 1), f"Número incorrecto de argumentos en llamada a '{node.name}'")
-            return entry.return_type or ErrorType
-        for i, (arg_node, param_info) in enumerate(zip(actual_args, expected_params)):
-            arg_type = type_check(arg_node, current_func)
-            param_typ = param_info[0] if isinstance(param_info, (list, tuple)) else param_info.get('typ', ExpType.Integer)
-            # Solo chequeo de tipo base (ExpType)
-            if arg_type != param_typ:
-                report_error(node.lineno, getattr(node, 'column', 1), f"Tipo incorrecto para argumento {i+1} en llamada a '{node.name}'")
-        return entry.return_type or ErrorType
-
-    # --- Sentencias de control ---
-    if node.nodekind == NodeKind.StmtK:
-        # if
-        if node.stmt == StmtKind.IfK:
-            cond_type = tipos[0]
-            if cond_type not in (ExpType.Boolean, ExpType.Integer):
-                report_error(node.lineno, getattr(node, 'column', 1), "Condición de if debe ser booleana o entera")
-        # while
-        if node.stmt == StmtKind.WhileK:
-            cond_type = tipos[0]
-            if cond_type not in (ExpType.Boolean, ExpType.Integer):
-                report_error(node.lineno, getattr(node, 'column', 1), "Condición de while debe ser booleana o entera")
-        # return
-        if node.stmt == StmtKind.ReturnK:
-            # Buscar tipo de retorno de la función actual
-            func_type = current_func['return_type'] if current_func else None
-            ret_type = tipos[0] if len(tipos) > 0 else None
-            if func_type is not None:
-                if ret_type != func_type:
-                    report_error(node.lineno, getattr(node, 'column', 1), "Tipo de retorno incorrecto")
-        # CompoundK (bloque): si es función, actualizar current_func
-        if node.stmt == StmtKind.CompoundK and hasattr(node, 'name') and node.name:
-            # Es un bloque de función
-            current_func = {'return_type': node.return_type}
-
-    # Chequear hermanos
-    type_check(node.sibling, current_func)
-    return ErrorType
+    """Función principal del análisis semántico"""
+    # Construir tabla de símbolos
+    tabla_error = tabla(tree, imprime)
+    
+    # Verificar tipos
+    type_error = type_check(tree)
+    
+    # Imprimir resultado
+    if not tabla_error and not type_error:
+        print("\nAnálisis semántico completado sin errores.")
+    else:
+        print("\nSe encontraron errores durante el análisis semántico.")
+    
+    return tabla_error or type_error
