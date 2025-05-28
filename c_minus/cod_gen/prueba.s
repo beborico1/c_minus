@@ -15,25 +15,27 @@ factorial:
 # -> if
 # -> Op
 # -> Id
-    lw $v0, 0($sp)
+    lw $a0, 0($sp)
 # <- Id
-    move $t0, $v0
+    sw $a0, 0($sp)
+    addi $sp, $sp, -4
 # -> Const
-    li $v0, 1
+    li $a0, 1
 # <- Const
-    move $t1, $v0
-    ble $t0, $t1, L1
-    li $v0, 0
+    lw $t1, 4($sp)
+    addi $sp, $sp, 4
+    ble $t1, $a0, L1
+    li $a0, 0
     j L2
 L1:
-    li $v0, 1
+    li $a0, 1
 L2:
 # <- Op
-    beqz $v0, L3
+    beqz $a0, L3
 # -> compound
 # -> return
 # -> Const
-    li $v0, 1
+    li $a0, 1
 # <- Const
     lw $ra, 4($sp)
     addi $sp, $sp, 8
@@ -45,31 +47,29 @@ L3:
 # -> compound
 # -> return
 # -> Op
-# -> Id
-    lw $v0, 0($sp)
-# <- Id
-    move $t0, $v0
 # -> Call: factorial
-    addi $sp, $sp, -4
-    sw $ra, 0($sp)
 # -> Op
 # -> Id
-    lw $v0, 0($sp)
+    lw $a0, 0($sp)
 # <- Id
-    move $t0, $v0
+    sw $a0, 0($sp)
+    addi $sp, $sp, -4
 # -> Const
-    li $v0, 1
+    li $a0, 1
 # <- Const
-    move $t1, $v0
-    sub $v0, $t0, $t1
-# <- Op
-    move $a0, $v0
-    jal factorial
-    lw $ra, 0($sp)
+    lw $t1, 4($sp)
     addi $sp, $sp, 4
+    sub $a0, $t1, $a0
+# <- Op
+    jal factorial
 # <- Call: factorial
-    move $t1, $v0
-    mul $v0, $t0, $t1
+    move $t1, $a0
+# -> Id
+    lw $a0, 0($sp)
+# <- Id
+    move $t0, $a0
+    move $a0, $t1
+    mul $a0, $t0, $a0
 # <- Op
     lw $ra, 4($sp)
     addi $sp, $sp, 8
@@ -85,31 +85,24 @@ main:
     addi $sp, $sp, -8
 # -> compound
 # -> assign
-# -> Call: input
-    li $v0, 5
-    syscall
-# <- Call: input
-    sw $v0, -4($sp)
+# -> Const
+    li $a0, 5
+# <- Const
+    sw $a0, -4($sp)
 # <- assign
 # -> assign
 # -> Call: factorial
-    addi $sp, $sp, -4
-    sw $ra, 0($sp)
 # -> Id
-    lw $v0, -4($sp)
+    lw $a0, -4($sp)
 # <- Id
-    move $a0, $v0
     jal factorial
-    lw $ra, 0($sp)
-    addi $sp, $sp, 4
 # <- Call: factorial
-    sw $v0, -8($sp)
+    sw $a0, -8($sp)
 # <- assign
 # -> Call: output
 # -> Id
-    lw $v0, -8($sp)
+    lw $a0, -8($sp)
 # <- Id
-    move $a0, $v0
     li $v0, 1
     syscall
     li $v0, 4

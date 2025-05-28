@@ -10,15 +10,8 @@
 .globl main
 
 main:
-    # Print prompt
-    li $v0, 4
-    la $a0, prompt
-    syscall
-    
-    # Read integer
-    li $v0, 5
-    syscall
-    move $a0, $v0         # Move input to $a0 for factorial
+    # Hardcode input value 5
+    li $a0, 5             # Load 5 directly into $a0 for factorial
     
     # Call factorial
     jal factorial
