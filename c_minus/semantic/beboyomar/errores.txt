@@ -1,0 +1,41 @@
+# Errores Corregidos en la Implementación Combinada
+
+## Problemas de la implementación de Bebo:
+
+1. Verificación insuficiente de variables no declaradas:
+   - Se mejoró la detección de variables no declaradas
+   - Se agregaron mensajes de error más claros indicando el nombre de la variable no declarada
+   - Se arreglaron falsos negativos en la detección de variables no declaradas
+
+2. Falta de verificación de tipos mal asignados:
+   - Se mejoró la verificación de tipos en asignaciones
+   - Se agregaron verificaciones para tipos incompatibles
+   - Se implementó un sistema más robusto para validar operaciones y asignaciones
+
+## Problemas de la implementación de Omar:
+
+1. Falsos positivos en la detección de variables no declaradas:
+   - Se corrigió la lógica de búsqueda en la tabla de símbolos para evitar marcar erróneamente variables como no declaradas
+   - Se mejoró el sistema de manejo de ámbitos para detectar correctamente las variables declaradas en ámbitos superiores
+
+2. Detección incorrecta de errores de tipo:
+   - Se corrigieron las verificaciones de tipo para evitar falsos positivos
+   - Se mejoró la lógica para determinar el tipo de las expresiones
+   - Se implementó un sistema más preciso para la verificación de tipos en llamadas a funciones
+
+## Mejoras Generales:
+
+1. Tabla de símbolos más robusta:
+   - Mejor manejo de ámbitos anidados
+   - Más información sobre cada identificador (tipo, clase, líneas de uso)
+   - Mejor identificación de redeclaraciones
+
+2. Verificación de tipos más precisa:
+   - Mejor verificación de operaciones aritméticas
+   - Verificación correcta de índices de arreglos
+   - Validación apropiada de argumentos en llamadas a funciones
+
+3. Mensajes de error más claros:
+   - Inclusión de número de línea en cada error
+   - Descripciones más detalladas del problema
+   - Identificación del nombre de la variable o función problemática 
