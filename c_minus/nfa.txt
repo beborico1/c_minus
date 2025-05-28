@@ -1,0 +1,351 @@
+
+Página
+1
+de 14
+20/05/25
+1
+Autómatas Finitos No
+Determinísticos
+Diseño de Compiladores
+Dr. Víctor de la Cueva
+vcueva@tec.mx
+1
+Autómata Finito No Determinístico (NFA)
+ En realidad, cualquier conjunto que sea aceptado por un
+NFA podrá ser aceptado por un FA (o DFA).
+ Sin embargo, el NFA es un concepto útil en la prueba de
+teoremas y el concepto de no-determinístico juega un papel
+fundamental tanto en la teoría de lenguajes como en la
+teoría de la computación.
+ Para crear el nuevo modelo NFA considere modificar el
+modelo de FA para permitir 0, 1 o más transiciones de un
+estado con el mismo símbolo de entrada.
+ También se pueden formar diagramas de transición para un
+NFA.
+2
+20/05/25
+2
+Control de movimientos
+ Una de las distinciones cruciales entre las clases de autómatas
+finitos es si el control es:
+◦ Determinístico, que significa que el autómata no puede estar en más de un
+estado en cualquier tiempo.
+◦ No-determinístico, que significa que puede estar en muchos estados a la
+vez.
+ Descubriremos que agregando no-determinismo no nos ayuda a
+definir ningún lenguaje que no pueda ser definido usando autómatas
+determinísticos, pero son más eficientes las describir la aplicación.
+ El no-determinismo nos ayuda a “programar” la solución en
+lenguaje de “alto-nivel”.
+ Posteriormente, el Autómata No Determinístico es “compilado”
+para transformarlo en uno Determinístico, el cual es ejecutado.
+3
+Secuencia aceptada por un NFA
+ Una secuencia de entrada a1 a2 ...an es aceptada por un NFA
+si existe una secuencia de transiciones, correspondientes a la
+secuencia de entrada, que lleva al NFA de un estado inicial a
+un estado final.
+ En un DFA, para un string w y un estado q dados, existe una
+única transición para cada símbolo.
+◦ Para determinar si un string es aceptado por un DFA basta verificar
+si existe este único camino.
+ Para un NFA hay muchos caminos etiquetados con w.
+◦ Para determinar si un string w es aceptado, TODOS deben ser
+checados para verificar si al menos 1 termina en un estado final.
+20HU
+4
+20/05/25
+3
+Ejemplo
+a,b
+b b
+ Representa el conjunto de strings en el alfabeto {a,b} que
+terminan en bb.
+ Su tabla de transición es a conjuntos de estados.
+ Para ver si un string es aceptado se deben seguir todos los
+caminos, lo cual forma un árbol.
+Estad
+o
+a b
+0 {0} {0,1}
+1 {} {2}
+2 {} {}
+5
+Ejemplo de aceptación de un string
+ Veamos si el string w = abb es aceptado por el autómata
+anterior:
+a,b
+b b
+0
+0 1
+b b
+0
+0
+a
+0
+0 1
+b b 1
+2
+b
+6
+20/05/25
+4
+Ejemplos
+ Un NFA que acepte strings que tengan dos 0’s o dos
+1’s consecutivos.
+ Un NFA que acepte strings con la secuencia abba.
+ Hacer primero el DFA y luego el NFA.
+20HU
+160Su
+7
+Formalmente
+ Denotamos un NFA por medio de una 5-tupla (Q, S, d, q 0 , F), donde
+todos los elementos tienen el mismo significado que un FA excepto d
+que ahora mapea Q X S ® 2Q
+, donde 2Q es el conjunto potencia de Q
+(el conjunto de todos los posibles subconjuntos de Q).
+ La intención es que d(q,a) es el conjunto de todos los estados p tales
+que hay una transición de q a p etiquetada con a.
+ La función d puede ser extendida a !𝛿 que mapea de Q X S* ® 2Q y se
+refiere a secuencias de entradas:
+1. #𝛿 𝑞, 𝜖 = 𝑞
+2. #𝛿 𝑞, 𝑤𝑎 = 𝑝 𝑝𝑎𝑟𝑎 𝑎𝑙𝑔ú𝑛 𝑒𝑠𝑡𝑎𝑑𝑜 𝑟 𝑒𝑛 #𝛿 𝑞, 𝑤 , 𝑝 𝑒𝑠𝑡á 𝑒𝑛 𝛿(𝑟, 𝑎)}
+21HU
+8
+20/05/25
+5
+Extensión
+ Note que !𝛿 𝑞, 𝑎 = 𝛿 𝑞, 𝑎 para un símbolo de entrada
+a.
+ De esta forma, nuevamente usaremos el símbolo d en
+lugar de !𝛿.
+ También es útil extender d a argumentos en 2 Q X S*:
+3. 𝛿 𝑃, 𝑤 = ⋃ ;∈= 𝛿(𝑞, 𝑤)
+para cada conjunto de estados P Í Q
+L(M) ,donde M es el NFA (Q, S, d, q0, F), es
+{𝑤|𝛿 𝑞# , 𝑤 𝑐𝑜𝑛𝑡𝑖𝑒𝑛𝑒 𝑢𝑛 𝑒𝑠𝑡𝑎𝑑𝑜 𝑒𝑛 𝐹} 21HU
+9
+Equivalencia de DFAs y NFAs
+ Teorema: Sea L un conjunto aceptado por un NFA.
+Entonces, existe un DFA que acepta a L.
+ Demostración (construcción): La prueba dependerá de
+mostrar que los DFAs pueden simular NFAs; esto es, para
+cada NFA podemos construir un DFA equivalente (uno que
+acepte el mismo lenguaje)
+◦ La forma en la que un DFA simula un NFA es permitiendo que los
+estados de un DFA correspondan a conjuntos de estados del NFA.
+◦ El DFA que se construye así, realiza un seguimiento en su control
+finito de todos los estados en los que el NFA podría estar después
+de leer la misma entrada que el DFA ha leído.
+22HU
+10
+20/05/25
+6
+Creación de un DFA a partir de un NFA
+ La demostración anterior proporciona un método
+para crear un DFA que acepte el mismo lenguaje que
+un NFA (un DFA equivalente).
+ El estado inicial es el subconjunto [q 0], donde q 0 es el
+estado inicial del NFA (ver método en ejercicio).
+ En la práctica, es común que muchos de los estados de
+un DFA equivalente no puedan ser alcanzados a partir
+de [q 0], por lo que no deben estar en la tabla final.
+ Se recomienda iniciar con [q 0] e ir agregando estados
+a la tabla, dependiendo de cuáles sí se pueden alcanzar.
+23HU
+164-165 Su
+11
+NFA con movimientos-𝜖
+ Se puede extender el modelo de NFA para que incluya
+transiciones con la entrada nula 𝜖.
+ Ejemplo: Un NFA que acepta el lenguaje consistente en
+cualquier número de 0’s (incluyendo 0), seguido de
+cualquier número de 1’s y seguido de cualquier número
+de 2’s.
+ Desde luego, se pueden incluir aristas etiquetadas con 𝜖
+en el camino de aceptación aún y cuando las 𝜖’s no
+aparezcan explícitamente en el string w.
+24HU
+24HU
+12
+20/05/25
+7
+Formalmente
+ Un NFA con 𝜖-moves es una quíntupla (5-tupla)
+(Q,S,d,q0,F) con todos los componentes definidos igual
+que para un NFA, pero con d, la función de transición,
+que mapea Q X (S È {𝜖}) ® 2 Q.
+ La intención es que d(q,a) consista de todos los estados
+p tales que hay una transición de p a q, etiquetada con a,
+donde a es un símbolo de S o 𝜖.
+ Desde luego que se puede crear una tabla de transición
+para definir d, donde ahora se agrega 𝜖 como una posible
+entrada.
+25HU
+166-167 Su
+13
+"𝛿
+ Como siempre, extendemos d a una función !𝛿 que mapea
+QXS*® 2Q .
+ !𝛿(q,w) debe dar todos los estados p, tales que se pueda ir
+de q a p con un camino etiquetado w, quizá incluyendo
+aristas etiquetadas con 𝜖.
+ Obviamente, en la construcción del !𝛿 es importante
+encontrar el conjunto de estados alcanzables de un estado q
+dado, usando transiciones 𝜖.
+ Usamos 𝜖 − 𝐶𝐿𝑂𝑆𝑈𝑅𝐸 para denotar el conjunto de todos
+los vértices p tales que hay un camino de q a p etiquetado 𝜖.
+14
+20/05/25
+8
+𝜖-CLOSURE(q)
+ Para extender d a !𝛿 es necesario calcular el conjunto de
+estados alcanzables a partir de un estado q usando una
+transición 𝜖.
+ Se utiliza 𝜖-CLOSURE(q) para denotar el conjunto de todos
+los vértices p tales que hay un camino de q a p etiquetado
+con 𝜖.
+ También se puede calcular 𝜖-CLOSURE(P), donde P es un
+conjunto de estados, como:
+∈ −𝐶𝐿𝑂𝑆𝑈𝑅𝐸 𝑃 = ,
+!∈#
+𝜖 − 𝐶𝐿𝑂𝑆𝑈𝑅𝐸(𝑞)
+25HU
+15
+Definición formal de 𝜖-CLOSURE
+ Se hace en forma recursiva.
+ La 𝜖-CLOSURE de un estado q i, denotada por 𝜖-
+CLOSURE(q i), es definida recurrentemente por:
+◦ Base: q i Î 𝜖-CLOSURE(q i )
+◦ Recursivo: Sea q j un elemento de 𝜖-CLOSURE(q i ).
+Si q k Î d(q j ,Î), entonces q k Î 𝜖-CLOSURE(q i ).
+◦ Cerradura: ...
+16
+20/05/25
+9
+Definición de "𝛿
+ Se puede entonces definir -𝛿 como sigue:
+1. !𝛿 q, ε = 𝜖 − 𝐶𝐿𝑂𝑆𝑈𝑅𝐸 𝑞
+2. Para wÎS* y aÎS, !𝛿 𝑞, 𝑤𝑎 = 𝜖 − 𝐶𝐿𝑂𝑆𝑈𝑅𝐸 𝑃 , donde
+P = {p|para alguna r
+Î !𝛿(q,w), p
+Îd(r,a)}
+ Es conveniente extender d y -𝛿 a conjuntos de estados R como:
+3. 𝛿 𝑅, 𝑎 = ⋃ !∈$ 𝛿 𝑞, 𝑎 , y
+4. !𝛿 𝑅, 𝑤 = ⋃ !∈$ !𝛿(𝑞, 𝑤)
+ En este caso
+d(q,a) no necesariamente es igual a .δ(q,a) ya que
+incluye paths etiquetados con a (incluyendo paths etiquetados por
+𝜖). Ni -𝛿(q, 𝜖) es necesariamente igual a
+d(q,𝜖).
+17
+Función de transición de entrada t
+ La función de transición de entrada t de un NFA-Î M es
+una función de QXS®2 Q, definida por:
+𝑡(𝑞8 , 𝑎) = 8
+9> ∈ ∈;<=>?@AB(9? )
+𝜖 − 𝐶𝐿𝑂𝑆𝑈𝑅𝐸(𝛿 𝑞C , 𝑎 )
+Donde d es la función de transición de M.
+18
+20/05/25
+10
+Tres partes para t
+ t(q i,a) puede ser separada en 3 partes:
+1. Obtener el conjunto de estados que pueden ser alcanzados de q i
+sin procesar un solo símbolo, es decir, con
+Î-moves, los cuales NO
+están en t.
+2. Obtener el conjunto de estados que pueden ser alcanzados al
+procesar un símbolo a de todos los estados del conjunto, los
+cuales están en t.
+3. Obtener el conjunto de estados a los que se puede llegar con los
+Î-arcos a partir del conjunto obtenido en 2, los cuales, también
+están en t.
+NOTA: Para un NFA (sin Î-moves) la t es la misma que su d. La
+función t es usada para construir un DFA equivalente.
+171Su
+19
+Equivalencia entre NFA y NFA-𝜖
+ Igual que el no-determinismo, la habilidad para hacer
+transiciones con 𝜖 no permite a un NFA aceptar
+conjuntos no regulares.
+ Esto se mostrará simulando un NFA con 𝜖-moves por
+medio de un NFA sin tales transiciones.
+ Teorema. Si L es aceptado por un NFA con 𝜖-moves,
+entonces L es aceptado por un NFA sin 𝜖-moves.
+ Demostración: Es por un procedimiento de
+construcción... 26HU
+171Sud
+20
+20/05/25
+11
+Construcción de un DFA a partir de un NFA-Î
+172Su
+Tomado de [1] pp. 172
+27HU
+21
+Lenguaje aceptado
+ Se define L(M), el lenguaje aceptado por M = (Q, S, d, q0,
+F) como w !𝛿(𝑞# , 𝑤 𝑐𝑜𝑛𝑡𝑖𝑒𝑛𝑒 𝑢𝑛 𝑒𝑠𝑡𝑎𝑑𝑜 𝑒𝑛 𝐹} 26HU
+22
+20/05/25
+12
+Equivalencia de DFA y RE
+ El plan será mostrar por inducción sobre el tamaño
+(número de operadores en) de una expresión regular
+que hay un NFA con 𝜖-transitions denotando
+el mismo lenguaje.
+ Esta demostración, junto con los teoremas de
+equivalencia anteriores: NFA
+NFA con
+𝜖-transitions
+RE
+DFA
+23
+RE a NFA
+ Teorema. Sea r una expresión regular. Entonces, existe
+un NFA con 𝜖-transitions que acepte L(r).
+ Demostración:... 30HU
+24
+20/05/25
+13
+Construcción de un NFA a partir de una RE
+r = Î
+r = Æ
+r = a
+r = r1 + r 2
+r = r1r2
+r = r1* 32HU
+25
+DFA a RE
+ Teorema: Si L es aceptado por un DFA, entonces, L es
+denotado por una expresión regular.
+ Demostración:... 33HU
+26
+20/05/25
+14
+Construcción de una RE a partir de un DFA
+ La equivalencia de procesos de un DFA y sus caminos nos proporciona
+un método heurístico para determinar el lenguaje que es aceptado por
+un DFA.
+ Los strings aceptados en un estado qi (estado final) son precisamente
+aquellos deletreados por el camino de q0 a qi .
+ Podemos entonces separar la determinación de esos caminos en dos
+partes:
+◦ Encontrar las expresiones regulares u 1 , ..., u n para los strings en todos los
+caminos de q 0 que alcanzan q i por primera vez.
+◦ Encontrar las expresiones regulares v1 , ..., vm para todos los caminos que dejan
+q i y regresan a q i .
+◦ Los strings aceptados por q i son (u1 È ... È u n )(v1 È ... È vm )*.
+ Los strings aceptados por el DFA son la unión de los aceptados por cada
+estado final qi .
+152Su
+27
+Referencias
+1. T.A. Sudkamp. Languages and Machines: An Introduction
+to the Theory of Computer Science. Pearson, 3rd
+Edition (2005).
+2. J.E. Hopcroft, R. Motwani, J.D. Ullman. Introduction to
+Automata Theory, Languages, and Computation. Pearson,
+3rd Edition (2006).
+28
