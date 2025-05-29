@@ -1,5 +1,5 @@
-# C- Compilation to MIPS
-# File: tests/factorial.s
+# Compilacion C- a MIPS
+# Archivo: tests/factorial.s
 .data
 newline: .asciiz "\n"
 

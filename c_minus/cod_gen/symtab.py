@@ -1,22 +1,22 @@
-# Tabla de símbolos para C- con inferencia de tipos integrada
+# Tabla de simbolos para C- con inferencia de tipos integrada
 class SymTabEntry:
-    """Clase para manejar entradas en la tabla de símbolos"""
+    """Clase para manejar entradas en la tabla de simbolos"""
     def __init__(self, name, type_spec, line_numbers, scope_level, attr=None):
         self.name = name # Nombre del identificador
         self.type_spec = type_spec # Tipo de dato (int, void, array)
-        self.line_numbers = line_numbers # Lista de números de línea
-        self.scope_level = scope_level # Nivel de ámbito
+        self.line_numbers = line_numbers # Lista de numeros de linea
+        self.scope_level = scope_level # Nivel de ambito
         self.attr = attr # Atributos adicionales (tamaño de array, params para funciones)
 
-# Tabla de símbolos implementada como un diccionario
-# La clave es una tupla (scope, name) para manejar ámbitos
+# Tabla de simbolos implementada como un diccionario
+# La clave es una tupla (scope, name) para manejar ambitos
 table = {}
-scope_stack = [0] # Pila de ámbitos (el primero es el global)
-current_scope = 0 # ámbito actual
-scope_count = 0 # Contador para crear nuevos ámbitos
+scope_stack = [0] # Pila de ambitos (el primero es el global)
+current_scope = 0 # ambito actual
+scope_count = 0 # Contador para crear nuevos ambitos
 
 def st_enter_scope():
-    """Crear un nuevo ámbito y hacerlo el ámbito actual"""
+    """Crear un nuevo ambito y hacerlo el ambito actual"""
     global scope_count, current_scope, scope_stack
     scope_count += 1
     current_scope = scope_count
@@ -24,7 +24,7 @@ def st_enter_scope():
     return current_scope
 
 def st_exit_scope():
-    """Salir del ámbito actual y volver al ámbito anterior"""
+    """Salir del ambito actual y volver al ambito anterior"""
     global current_scope, scope_stack
     if len(scope_stack) > 1:
         scope_stack.pop()
@@ -33,27 +33,27 @@ def st_exit_scope():
 
 def st_insert(name, type_spec, lineno, attr=None):
     """
-    Insertar un símbolo en la tabla
+    Insertar un simbolo en la tabla
     
     Args:
         name: Nombre del identificador
         type_spec: Tipo de dato (int, void)
-        lineno: Número de línea
+        lineno: Numero de linea
         attr: Atributos adicionales
     
     Returns:
-        True si es nueva inserción, False si ya existía
+        True si es nueva insercion, False si ya existia
     """
     global table, current_scope
     
-    # Crear clave única para este ámbito y nombre
+    # Crear clave unica para este ambito y nombre
     key = (current_scope, name)
     
-    # Si ya existe en el ámbito actual, solo agregar el número de línea
+    # Si ya existe en el ambito actual, solo agregar el numero de linea
     if key in table:
         if lineno not in table[key].line_numbers:
             table[key].line_numbers.append(lineno)
-        return False # No es una nueva inserción
+        return False # No es una nueva insercion
     else:
         # Crear nueva entrada
         table[key] = SymTabEntry(
@@ -63,48 +63,48 @@ def st_insert(name, type_spec, lineno, attr=None):
             scope_level=current_scope,
             attr=attr
         )
-        return True # Nueva inserción
+        return True # Nueva insercion
 
 def st_lookup(name, current_scope_only=False):
     """
-    Buscar un símbolo en la tabla
+    Buscar un simbolo en la tabla
     
     Args:
         name: Nombre del identificador a buscar
-        current_scope_only: Si True, solo busca en el ámbito actual
+        current_scope_only: Si True, solo busca en el ambito actual
     
     Returns:
-        La entrada en la tabla de símbolos o None si no se encuentra
+        La entrada en la tabla de simbolos o None si no se encuentra
     """
     global table, current_scope, scope_stack
     
-    # Primero buscar en el ámbito actual
+    # Primero buscar en el ambito actual
     key = (current_scope, name)
     if key in table:
         return table[key]
     
-    # Si solo se busca en el ámbito actual o se encuentra, terminar
+    # Si solo se busca en el ambito actual o se encuentra, terminar
     if current_scope_only:
         return None
     
-    # Buscar en ámbitos padre (de abajo hacia arriba)
+    # Buscar en ambitos padre (de abajo hacia arriba)
     for scope in reversed(scope_stack[:-1]):
         key = (scope, name)
         if key in table:
             return table[key]
     
-    # No se encontró
+    # No se encontro
     return None
 
 def st_lookup_all_scopes(name):
     """
-    Buscar un símbolo en todos los ámbitos
+    Buscar un simbolo en todos los ambitos
     
     Args:
         name: Nombre del identificador a buscar
     
     Returns:
-        Lista de entradas en la tabla de símbolos
+        Lista de entradas en la tabla de simbolos
     """
     global table
     
@@ -116,15 +116,15 @@ def st_lookup_all_scopes(name):
     return entries
 
 def printSymTab():
-    """Imprimir tabla de símbolos en un formato legible"""
+    """Imprimir tabla de simbolos en un formato legible"""
     global table
     
-    print("\nTabla de símbolos:")
+    print("\nTabla de simbolos:")
     print("=" * 80)
-    print(f"{'Ámbito':<8}{'Nombre':<15}{'Tipo':<10}{'Líneas':<20}{'Atributos':<30}")
+    print(f"{'Ambito':<8}{'Nombre':<15}{'Tipo':<10}{'Lineas':<20}{'Atributos':<30}")
     print("-" * 80)
     
-    # Ordenar por ámbito y luego por nombre
+    # Ordenar por ambito y luego por nombre
     sorted_keys = sorted(table.keys())
     
     for key in sorted_keys:
@@ -138,8 +138,8 @@ from globalTypes import *
 
 def inferTypes(t):
     """
-    Inferir y establecer tipos para nodos de expresión
-    Esto debería llamarse como una pasada separada antes de la verificación de tipos
+    Inferir y establecer tipos para nodos de expresion
+    Esto deberia llamarse como una pasada separada antes de la verificacion de tipos
     """
     if t is None:
         return
@@ -158,12 +158,12 @@ def inferTypes(t):
         inferTypes(t.sibling)
 
 def inferExpType(t):
-    """Inferir tipo para nodos de expresión"""
+    """Inferir tipo para nodos de expresion"""
     
     if t.exp == ExpKind.OpK:
         # Para operadores, verificar tipos de operandos
         if t.child[0] is not None and t.child[1] is not None:
-            # Operadores aritméticos y de comparación
+            # Operadores aritmeticos y de comparacion
             if t.op in [TokenType.PLUS, TokenType.MINUS, TokenType.TIMES, TokenType.DIVIDE]:
                 t.type = ExpType.Integer
             elif t.op in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
@@ -178,7 +178,7 @@ def inferExpType(t):
         t.type = ExpType.Integer
     
     elif t.exp == ExpKind.IdK:
-        # Buscar variable en la tabla de símbolos
+        # Buscar variable en la tabla de simbolos
         sym = st_lookup(t.name)
         if sym is not None:
             if sym.attr and sym.attr.get('is_array'):
@@ -186,14 +186,14 @@ def inferExpType(t):
             else:
                 t.type = ExpType.Integer if sym.type_spec == "int" else ExpType.Void
         else:
-            t.type = ExpType.Integer  # Por defecto para no declarados (el error se detectará después)
+            t.type = ExpType.Integer  # Por defecto para no declarados (el error se detectara despues)
     
     elif t.exp == ExpKind.SubscriptK:
-        # El subíndice de arreglo siempre devuelve entero (tipo de elemento)
+        # El subindice de arreglo siempre devuelve entero (tipo de elemento)
         t.type = ExpType.Integer
     
     elif t.exp == ExpKind.CallK:
-        # Llamada a función - buscar tipo de retorno
+        # Llamada a funcion - buscar tipo de retorno
         sym = st_lookup(t.name)
         if sym is not None:
             if sym.type_spec == "void":
@@ -204,12 +204,12 @@ def inferExpType(t):
             t.type = ExpType.Integer  # Por defecto para funciones no declaradas
     
     elif t.exp == ExpKind.AssignK:
-        # La expresión de asignación toma el tipo del lado izquierdo
+        # La expresion de asignacion toma el tipo del lado izquierdo
         if t.child[0] is not None:
             t.type = getattr(t.child[0], 'type', ExpType.Integer)
         else:
             t.type = ExpType.Integer
     
-    # Asegurar que el tipo esté establecido (por defecto Integer si no está establecido)
+    # Asegurar que el tipo este establecido (por defecto Integer si no esta establecido)
     if not hasattr(t, 'type'):
         t.type = ExpType.Integer

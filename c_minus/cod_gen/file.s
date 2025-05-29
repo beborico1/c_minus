@@ -1,5 +1,5 @@
-# C- Compilation to MIPS
-# File: file.s
+# Compilacion C- a MIPS
+# Archivo: file.s
 .data
 newline: .asciiz "\n"
 var_x: .word 0

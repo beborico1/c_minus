@@ -5,7 +5,7 @@ from semantic import *
 from symtab import inferTypes  # Importar inferTypes desde symtab
 from cgen import *
 
-# Obtener nombre de archivo de línea de comandos o usar predeterminado
+# Obtener nombre de archivo de linea de comandos o usar predeterminado
 import sys
 if len(sys.argv) > 1:
     fileName = sys.argv[1]
@@ -17,8 +17,8 @@ try:
     programa = f.read()  # Leer archivo completo para compilar
     f.close()  # Cerrar archivo fuente
     progLong = len(programa)  # Longitud original del programa
-    programa = programa + '$'  # Agregar carácter $ para representar EOF
-    posicion = 0  # Posición actual del carácter
+    programa = programa + '$'  # Agregar caracter $ para representar EOF
+    posicion = 0  # Posicion actual del caracter
 
     Error = False
     recibeParser(programa, posicion, progLong)  # Enviar globales al parser
@@ -31,9 +31,9 @@ try:
         
     if not Error:
         print()
-        print("Generando Código...")
+        print("Generando Codigo...")
         codeGen(syntaxTree, fileName + ".s")
-        print(f"Código generado en {fileName}.s")
+        print(f"Codigo generado en {fileName}.s")
         
 except FileNotFoundError:
     print(f"Error: Archivo '{fileName}.c-' no encontrado")
