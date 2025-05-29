@@ -2,15 +2,15 @@
 from globalTypes import *
 from symtab import *
 
-# MIPS registers
-zero = "$zero"  # Always 0
-v0 = "$v0"      # Return values
+# Registros MIPS
+zero = "$zero"  # Siempre 0
+v0 = "$v0"      # Valores de retorno
 v1 = "$v1"
-a0 = "$a0"      # Arguments (also accumulator per codegen.md)
+a0 = "$a0"      # Argumentos (también acumulador según codegen.md)
 a1 = "$a1"
 a2 = "$a2"
 a3 = "$a3"
-t0 = "$t0"      # Temporaries
+t0 = "$t0"      # Temporales
 t1 = "$t1"
 t2 = "$t2"
 t3 = "$t3"
@@ -20,7 +20,7 @@ t6 = "$t6"
 t7 = "$t7"
 t8 = "$t8"
 t9 = "$t9"
-s0 = "$s0"      # Saved
+s0 = "$s0"      # Guardados
 s1 = "$s1"
 s2 = "$s2"
 s3 = "$s3"
@@ -28,12 +28,12 @@ s4 = "$s4"
 s5 = "$s5"
 s6 = "$s6"
 s7 = "$s7"
-sp = "$sp"      # Stack pointer
-fp = "$fp"      # Frame pointer
-ra = "$ra"      # Return address
-gp = "$gp"      # Global pointer
+sp = "$sp"      # Puntero de pila
+fp = "$fp"      # Puntero de marco
+ra = "$ra"      # Dirección de retorno
+gp = "$gp"      # Puntero global
 
-# Code generation state
+# Estado de generación de código
 emitLoc = 0
 highEmitLoc = 0
 tmpOffset = 0
@@ -43,25 +43,25 @@ localOffset = 0
 paramOffset = 0
 labelCount = 0
 
-# Output file
+# Archivo de salida
 code_file = None
 
-# Trace code generation
+# Rastrear generación de código
 TraceCode = True
 
-# Track current function and local variables
+# Rastrear función actual y variables locales
 current_function = None
-local_vars = {}  # Maps variable names to their offsets
-param_count = 0  # Track number of parameters for current function
-stack_adjustment = 0  # Track stack adjustments for proper parameter access
+local_vars = {}  # Mapea nombres de variables a sus desplazamientos
+param_count = 0  # Rastrear número de parámetros para la función actual
+stack_adjustment = 0  # Rastrear ajustes de pila para acceso adecuado a parámetros
 
 def emitComment(comment):
-    """Emit a comment in the assembly code"""
+    """Emitir un comentario en el código ensamblador"""
     if TraceCode and code_file:
         code_file.write(f"# {comment}\n")
 
 def emit(instruction):
-    """Emit a MIPS instruction"""
+    """Emitir una instrucción MIPS"""
     global emitLoc, highEmitLoc
     if code_file:
         code_file.write(f"    {instruction}\n")
@@ -70,18 +70,18 @@ def emit(instruction):
         highEmitLoc = emitLoc
 
 def emitLabel(label):
-    """Emit a label"""
+    """Emitir una etiqueta"""
     if code_file:
         code_file.write(f"{label}:\n")
 
 def getLabel():
-    """Generate a unique label"""
+    """Generar una etiqueta única"""
     global labelCount
     labelCount += 1
     return f"L{labelCount}"
 
 def emitSkip(howMany):
-    """Skip locations for later backpatch"""
+    """Saltar ubicaciones para posterior backpatch"""
     global emitLoc, highEmitLoc
     i = emitLoc
     emitLoc += howMany
@@ -90,17 +90,17 @@ def emitSkip(howMany):
     return i
 
 def emitBackup(loc):
-    """Back up to previously skipped location"""
+    """Retroceder a ubicación previamente saltada"""
     global emitLoc
     emitLoc = loc
 
 def emitRestore():
-    """Restore to highest emitted location"""
+    """Restaurar a la ubicación emitida más alta"""
     global emitLoc, highEmitLoc
     emitLoc = highEmitLoc
 
 def cGen(tree):
-    """Recursively generate code by tree traversal"""
+    """Generar código recursivamente mediante recorrido del árbol"""
     if tree is not None:
         if tree.nodekind == NodeKind.StmtK:
             genStmt(tree)
@@ -109,29 +109,29 @@ def cGen(tree):
         elif tree.nodekind == NodeKind.DeclK:
             genDecl(tree)
         
-        # Generate code for siblings
+        # Generar código para hermanos
         cGen(tree.sibling)
 
 def genStmt(tree):
-    """Generate code for statement nodes"""
+    """Generar código para nodos de declaración"""
     global tmpOffset
     
     if tree.stmt == StmtKind.IfK:
         emitComment("-> if")
-        # Generate test expression
+        # Generar expresión de prueba
         cGen(tree.child[0])
-        # Get labels
+        # Obtener etiquetas
         false_label = getLabel()
         end_label = getLabel()
-        # Branch if false (0)
+        # Saltar si es falso (0)
         emit(f"beqz {a0}, {false_label}")
-        # Generate then part
+        # Generar parte then
         cGen(tree.child[1])
         if tree.child[2] is not None:
-            # Jump over else part
+            # Saltar sobre la parte else
             emit(f"j {end_label}")
             emitLabel(false_label)
-            # Generate else part
+            # Generar parte else
             cGen(tree.child[2])
             emitLabel(end_label)
         else:
@@ -143,28 +143,28 @@ def genStmt(tree):
         loop_label = getLabel()
         end_label = getLabel()
         emitLabel(loop_label)
-        # Generate test expression
+        # Generar expresión de prueba
         cGen(tree.child[0])
-        # Branch if false (exit loop)
+        # Saltar si es falso (salir del bucle)
         emit(f"beqz {a0}, {end_label}")
-        # Generate body
+        # Generar cuerpo
         cGen(tree.child[1])
-        # Jump back to start
+        # Saltar de vuelta al inicio
         emit(f"j {loop_label}")
         emitLabel(end_label)
         emitComment("<- while")
         
     elif tree.stmt == StmtKind.AssignK:
         emitComment("-> assign")
-        # Generate RHS expression
-        cGen(tree.child[1])  # Result in $a0
-        # Store result
+        # Generar expresión del lado derecho
+        cGen(tree.child[1])  # Resultado en $a0
+        # Almacenar resultado
         if tree.child[0].exp == ExpKind.SubscriptK:
-            # Array element assignment
-            emit(f"move {t0}, {a0}")  # Save RHS value
-            cGen(tree.child[0].child[0])  # Generate index
-            emit(f"sll {a0}, {a0}, 2")  # Multiply by 4
-            # Check if local or global
+            # Asignación de elemento de arreglo
+            emit(f"move {t0}, {a0}")  # Guardar valor del lado derecho
+            cGen(tree.child[0].child[0])  # Generar índice
+            emit(f"sll {a0}, {a0}, 2")  # Multiplicar por 4
+            # Verificar si es local o global
             if tree.child[0].name in local_vars:
                 offset = local_vars[tree.child[0].name]
                 emit(f"la {t1}, {offset}({sp})")
@@ -173,72 +173,72 @@ def genStmt(tree):
             emit(f"add {t1}, {t1}, {a0}")
             emit(f"sw {t0}, 0({t1})")
         else:
-            # Simple variable assignment
+            # Asignación de variable simple
             var_name = tree.child[0].name
             if var_name in local_vars:
-                # Local variable
+                # Variable local
                 offset = local_vars[var_name]
                 emit(f"sw {a0}, {offset}({sp})")
             else:
-                # Global variable
+                # Variable global
                 emit(f"sw {a0}, var_{var_name}")
         emitComment("<- assign")
         
     elif tree.stmt == StmtKind.ReturnK:
         emitComment("-> return")
         if tree.child[0] is not None:
-            cGen(tree.child[0])  # Result will be in $a0
+            cGen(tree.child[0])  # El resultado estará en $a0
         
-        # Return based on function type
+        # Retorno basado en tipo de función
         if current_function == "factorial":
-            # Restore return address and clean up
+            # Restaurar dirección de retorno y limpiar
             emit(f"lw {ra}, 4({sp})")
-            emit(f"addi {sp}, {sp}, 8")  # Clean up saved ra and parameter
+            emit(f"addi {sp}, {sp}, 8")  # Limpiar ra guardado y parámetro
             emit(f"jr {ra}")
         elif current_function and current_function != "main":
-            # Generic function return - use the param_count from function declaration
-            # param_count is already set correctly in genDecl() 
+            # Retorno de función genérica - usar el param_count de la declaración de función
+            # param_count ya está establecido correctamente en genDecl() 
             stack_size = 4 + 4 * param_count
-            # For add function: param_count=2, stack_size=12, $ra at 8($sp)
+            # Para función add: param_count=2, stack_size=12, $ra en 8($sp)
             emit(f"lw {ra}, {stack_size-4}({sp})")
             emit(f"addi {sp}, {sp}, {stack_size}")
             emit(f"jr {ra}")
         else:
-            # Main or unknown function
+            # Función main o desconocida
             emit(f"jr {ra}")
         emitComment("<- return")
         
     elif tree.stmt == StmtKind.CompoundK:
         emitComment("-> compound")
-        cGen(tree.child[0])  # Local declarations
-        cGen(tree.child[1])  # Statement list
+        cGen(tree.child[0])  # Declaraciones locales
+        cGen(tree.child[1])  # Lista de declaraciones
         emitComment("<- compound")
 
 def genExp(tree):
-    """Generate code for expression nodes"""
+    """Generar código para nodos de expresión"""
     global tmpOffset, stack_adjustment
     
     if tree.exp == ExpKind.ConstK:
         emitComment("-> Const")
-        emit(f"li {a0}, {tree.val}")  # Use $a0 as accumulator per codegen.md
+        emit(f"li {a0}, {tree.val}")  # Usar $a0 como acumulador según codegen.md
         emitComment("<- Const")
         
     elif tree.exp == ExpKind.IdK:
         emitComment("-> Id")
         var_name = tree.name
         if var_name in local_vars:
-            # Local variable or parameter
+            # Variable local o parámetro
             offset = local_vars[var_name]
-            emit(f"lw {a0}, {offset}({sp})")  # Use $a0 as accumulator
+            emit(f"lw {a0}, {offset}({sp})")  # Usar $a0 como acumulador
         else:
-            # Global variable
-            emit(f"lw {a0}, var_{var_name}")  # Use $a0 as accumulator
+            # Variable global
+            emit(f"lw {a0}, var_{var_name}")  # Usar $a0 como acumulador
         emitComment("<- Id")
         
     elif tree.exp == ExpKind.SubscriptK:
         emitComment("-> Array access")
-        cGen(tree.child[0])  # Generate index
-        emit(f"sll {a0}, {a0}, 2")  # Multiply by 4
+        cGen(tree.child[0])  # Generar índice
+        emit(f"sll {a0}, {a0}, 2")  # Multiplicar por 4
         if tree.name in local_vars:
             offset = local_vars[tree.name]
             emit(f"la {t0}, {offset}({sp})")
@@ -250,91 +250,91 @@ def genExp(tree):
         
     elif tree.exp == ExpKind.CallK:
         emitComment(f"-> Call: {tree.name}")
-        # Handle built-in functions
+        # Manejar funciones integradas
         if tree.name == "input":
-            emit(f"li {v0}, 5")  # Read integer syscall
+            emit(f"li {v0}, 5")  # Syscall leer entero
             emit("syscall")
-            emit(f"move {a0}, {v0}")  # Move result to accumulator
+            emit(f"move {a0}, {v0}")  # Mover resultado al acumulador
         elif tree.name == "output":
-            # Generate argument
+            # Generar argumento
             if tree.child[0] is not None:
-                cGen(tree.child[0])  # Result already in $a0
-                emit(f"li {v0}, 1")  # Print integer syscall
+                cGen(tree.child[0])  # Resultado ya en $a0
+                emit(f"li {v0}, 1")  # Syscall imprimir entero
                 emit("syscall")
-                # Print newline
+                # Imprimir nueva línea
                 emit(f"li {v0}, 4")
                 emit(f"la {a0}, newline")
                 emit("syscall")
         else:
-            # User-defined function call  
-            # Handle arguments manually to avoid automatic sibling traversal
+            # Llamada a función definida por el usuario  
+            # Manejar argumentos manualmente para evitar recorrido automático de hermanos
             if tree.child[0] is not None:
-                # First argument exists
+                # Existe el primer argumento
                 if tree.child[0].sibling is not None:
-                    # Two arguments - handle carefully to avoid stack pointer issues
-                    # Generate first argument directly using genExp to avoid sibling traversal
-                    genExp(tree.child[0])  # First arg in $a0  
-                    emit(f"move {t0}, {a0}")  # Save first arg in register instead of stack
-                    # Generate second argument  
-                    genExp(tree.child[0].sibling)  # Second arg in $a0
-                    emit(f"move {a1}, {a0}")  # Move second to $a1
-                    emit(f"move {a0}, {t0}")  # Restore first to $a0
+                    # Dos argumentos - manejar cuidadosamente para evitar problemas del puntero de pila
+                    # Generar primer argumento directamente usando genExp para evitar recorrido de hermanos
+                    genExp(tree.child[0])  # Primer arg en $a0  
+                    emit(f"move {t0}, {a0}")  # Guardar primer arg en registro en lugar de pila
+                    # Generar segundo argumento  
+                    genExp(tree.child[0].sibling)  # Segundo arg en $a0
+                    emit(f"move {a1}, {a0}")  # Mover segundo a $a1
+                    emit(f"move {a0}, {t0}")  # Restaurar primero a $a0
                 else:
-                    # Single argument
-                    genExp(tree.child[0])  # Result in $a0
+                    # Argumento único
+                    genExp(tree.child[0])  # Resultado en $a0
             
-            # Call function
-            # Use prefixed function name to avoid conflicts
+            # Llamar función
+            # Usar nombre de función con prefijo para evitar conflictos
             func_name = f"func_{tree.name}" if tree.name not in ["input", "output", "main"] else tree.name
             emit(f"jal {func_name}")
             
-            # The result is in $a0 (accumulator)
+            # El resultado está en $a0 (acumulador)
         emitComment(f"<- Call: {tree.name}")
         
     elif tree.exp == ExpKind.OpK:
         emitComment("-> Op")
-        # Check if either operand is a function call
+        # Verificar si algún operando es una llamada a función
         has_call = (tree.child[0] and tree.child[0].exp == ExpKind.CallK) or \
                    (tree.child[1] and tree.child[1].exp == ExpKind.CallK)
         
         if has_call:
-            # Special handling when function calls are involved
-            # Evaluate function call first to avoid stack issues
+            # Manejo especial cuando hay llamadas a función involucradas
+            # Evaluar llamada a función primero para evitar problemas de pila
             if tree.child[1] and tree.child[1].exp == ExpKind.CallK:
-                # Right operand is a call - evaluate it first
-                cGen(tree.child[1])  # Result in $a0
-                emit(f"move {t1}, {a0}")  # Save result
-                cGen(tree.child[0])  # Get left operand in $a0
+                # El operando derecho es una llamada - evaluarlo primero
+                cGen(tree.child[1])  # Resultado en $a0
+                emit(f"move {t1}, {a0}")  # Guardar resultado
+                cGen(tree.child[0])  # Obtener operando izquierdo en $a0
                 emit(f"move {t0}, {a0}")
-                emit(f"move {a0}, {t1}")  # Put right operand back in $a0 for operation
-                # Now $t0 has left, $a0 has right
+                emit(f"move {a0}, {t1}")  # Poner operando derecho de vuelta en $a0 para operación
+                # Ahora $t0 tiene izquierdo, $a0 tiene derecho
             else:
-                # Left operand is a call
-                cGen(tree.child[0])  # Result in $a0
-                emit(f"move {t0}, {a0}")  # Save result
-                cGen(tree.child[1])  # Get right operand in $a0
+                # El operando izquierdo es una llamada
+                cGen(tree.child[0])  # Resultado en $a0
+                emit(f"move {t0}, {a0}")  # Guardar resultado
+                cGen(tree.child[1])  # Obtener operando derecho en $a0
                 emit(f"move {t1}, {a0}")
-                emit(f"move {a0}, {t0}")  # Put left operand in $a0
-                emit(f"move {t0}, {t1}")  # Put right in $t0
-                # Now $a0 has left, $t0 has right
+                emit(f"move {a0}, {t0}")  # Poner operando izquierdo en $a0
+                emit(f"move {t0}, {t1}")  # Poner derecho en $t0
+                # Ahora $a0 tiene izquierdo, $t0 tiene derecho
             
-            # Perform operation based on type
+            # Realizar operación basada en tipo
             if tree.op == TokenType.PLUS:
                 emit(f"add {a0}, {t0}, {a0}")
             elif tree.op == TokenType.MINUS:
                 emit(f"sub {a0}, {t0}, {a0}")
             elif tree.op == TokenType.TIMES:
-                # For n * factorial(n-1), $t0 has n, $a0 has factorial(n-1)
+                # Para n * factorial(n-1), $t0 tiene n, $a0 tiene factorial(n-1)
                 emit(f"mul {a0}, {t0}, {a0}")
         else:
-            # Normal case - no function calls
-            # For simple operations like a+b where both are parameters/locals
-            # Don't use stack - use registers directly
-            cGen(tree.child[0])  # Left operand in $a0
-            emit(f"move {t0}, {a0}")  # Save left in $t0
-            cGen(tree.child[1])  # Right operand in $a0
+            # Caso normal - sin llamadas a función
+            # Para operaciones simples como a+b donde ambos son parámetros/locales
+            # No usar pila - usar registros directamente
+            cGen(tree.child[0])  # Operando izquierdo en $a0
+            emit(f"move {t0}, {a0}")  # Guardar izquierdo en $t0
+            cGen(tree.child[1])  # Operando derecho en $a0
             
-            # Perform operation (result in $a0)
+            # Realizar operación (resultado en $a0)
             if tree.op == TokenType.PLUS:
                 emit(f"add {a0}, {t0}, {a0}")
             elif tree.op == TokenType.MINUS:
@@ -381,61 +381,61 @@ def genExp(tree):
         emitComment("<- Op")
 
 def genDecl(tree):
-    """Generate code for declaration nodes"""
+    """Generar código para nodos de declaración"""
     global current_function, local_vars, localOffset, param_count, stack_adjustment
     
     if tree.decl == DeclKind.VarK:
-        # Local variable declarations are handled by tracking offsets
+        # Las declaraciones de variables locales se manejan rastreando desplazamientos
         if current_function is not None:
-            # Inside a function - allocate space on stack
-            if tree.name not in local_vars:  # Only add if not already there
+            # Dentro de una función - asignar espacio en la pila
+            if tree.name not in local_vars:  # Solo agregar si no está ya ahí
                 local_vars[tree.name] = localOffset
                 localOffset -= 4
                 if tree.is_array and tree.array_size:
-                    # Allocate space for array
+                    # Asignar espacio para arreglo
                     localOffset -= 4 * (tree.array_size - 1)
     
     elif tree.decl == DeclKind.FunK:
         emitComment(f"-> Function: {tree.name}")
         current_function = tree.name
         local_vars.clear()
-        localOffset = -4  # Start at -4 for first local
-        stack_adjustment = 0  # Reset stack adjustment for new function
+        localOffset = -4  # Comenzar en -4 para el primer local
+        stack_adjustment = 0  # Reiniciar ajuste de pila para nueva función
         
-        # Count parameters
+        # Contar parámetros
         param_count = len(tree.params)
         
-        # Prefix function names to avoid conflicts with MIPS instructions
+        # Prefijar nombres de función para evitar conflictos con instrucciones MIPS
         func_label = f"func_{tree.name}" if tree.name != "main" else "main"
         emitLabel(func_label)
         
         if tree.name == "factorial":
-            # Simple approach like working example
-            emit(f"addi {sp}, {sp}, -8")  # Make room for $ra and parameter
-            emit(f"sw {ra}, 4({sp})")     # Save return address
-            emit(f"sw {a0}, 0({sp})")     # Save parameter n
+            # Enfoque simple como ejemplo funcional
+            emit(f"addi {sp}, {sp}, -8")  # Hacer espacio para $ra y parámetro
+            emit(f"sw {ra}, 4({sp})")     # Guardar dirección de retorno
+            emit(f"sw {a0}, 0({sp})")     # Guardar parámetro n
             
-            # Mark parameter location
+            # Marcar ubicación del parámetro
             if param_count > 0 and hasattr(tree.params[0], 'name'):
-                local_vars[tree.params[0].name] = 0  # Parameter at 0($sp)
+                local_vars[tree.params[0].name] = 0  # Parámetro en 0($sp)
             
         elif tree.name == "main":
-            # Main function - simple setup
-            # Count and allocate locals
+            # Función main - configuración simple
+            # Contar y asignar locales
             processLocalDecls(tree.child[0])
-            space_needed = -localOffset - 4  # Adjusted calculation
+            space_needed = -localOffset - 4  # Cálculo ajustado
             if space_needed > 0:
                 emit(f"addi {sp}, {sp}, -{space_needed}")
         else:
-            # Other functions - handle multiple parameters
-            # For C-, parameters are passed in registers $a0-$a3
-            # We'll save them on the stack
-            stack_size = 4 + 4 * param_count  # Space for $ra + parameters
+            # Otras funciones - manejar múltiples parámetros
+            # Para C-, los parámetros se pasan en registros $a0-$a3
+            # Los guardaremos en la pila
+            stack_size = 4 + 4 * param_count  # Espacio para $ra + parámetros
             emit(f"addi {sp}, {sp}, -{stack_size}")
             emit(f"sw {ra}, {stack_size-4}({sp})")
             
-            # Save parameters
-            for i in range(min(param_count, 4)):  # Max 4 register params
+            # Guardar parámetros
+            for i in range(min(param_count, 4)):  # Máximo 4 parámetros de registro
                 if i == 0:
                     emit(f"sw {a0}, {i*4}({sp})")
                 elif i == 1:
@@ -445,23 +445,23 @@ def genDecl(tree):
                 elif i == 3:
                     emit(f"sw {a3}, {i*4}({sp})")
                     
-                # Mark parameter locations
+                # Marcar ubicaciones de parámetros
                 if i < len(tree.params) and hasattr(tree.params[i], 'name'):
                     local_vars[tree.params[i].name] = i * 4
         
-        # Generate function body
+        # Generar cuerpo de función
         if tree.child[0] is not None:
             cGen(tree.child[0])
         
         if tree.name == "main":
-            # Main function ends with exit syscall
+            # La función main termina con syscall de salida
             emit(f"li {v0}, 10")
             emit("syscall")
         elif tree.name == "factorial":
-            # Factorial cleanup - already has returns in body
+            # Limpieza de factorial - ya tiene retornos en el cuerpo
             pass
         else:
-            # Default epilogue - already handled in return statements
+            # Epílogo por defecto - ya manejado en declaraciones de retorno
             pass
         
         emitComment(f"<- Function: {tree.name}")
@@ -469,76 +469,76 @@ def genDecl(tree):
         current_function = None
 
 def processLocalDecls(tree):
-    """Process local declarations to assign offsets"""
+    """Procesar declaraciones locales para asignar desplazamientos"""
     if tree is None:
         return
     
-    # Process this node if it's a variable declaration
+    # Procesar este nodo si es una declaración de variable
     if tree.nodekind == NodeKind.DeclK and tree.decl == DeclKind.VarK:
         genDecl(tree)
     
-    # Process children
+    # Procesar hijos
     for i in range(MAXCHILDREN):
         if tree.child[i] is not None:
             processLocalDecls(tree.child[i])
     
-    # Process siblings
+    # Procesar hermanos
     if tree.sibling is not None:
         processLocalDecls(tree.sibling)
 
 def codeGen(syntaxTree, codefile):
-    """Main function to generate code"""
+    """Función principal para generar código"""
     global code_file, TraceCode
     
-    # Open output file
+    # Abrir archivo de salida
     code_file = open(codefile, 'w')
     
-    emitComment("C- Compilation to MIPS")
-    emitComment(f"File: {codefile}")
+    emitComment("Compilación C- a MIPS")
+    emitComment(f"Archivo: {codefile}")
     
-    # Data section
+    # Sección de datos
     code_file.write(".data\n")
     code_file.write("newline: .asciiz \"\\n\"\n")
     
-    # Generate space for global variables
+    # Generar espacio para variables globales
     generateGlobals(syntaxTree)
     
-    # Text section
+    # Sección de texto
     code_file.write("\n.text\n")
     code_file.write(".globl main\n")
     code_file.write("\n")
     
-    # Generate code for program
+    # Generar código para programa
     cGen(syntaxTree)
     
-    # Close file
+    # Cerrar archivo
     code_file.close()
 
 def generateGlobals(tree):
-    """Generate .data section for global variables"""
+    """Generar sección .data para variables globales"""
     if tree is not None:
         if tree.nodekind == NodeKind.DeclK and tree.decl == DeclKind.VarK:
-            # Only generate globals for variables declared outside functions
+            # Solo generar globales para variables declaradas fuera de funciones
             sym = st_lookup(tree.name)
-            if sym and sym.scope_level == 0:  # Global scope
+            if sym and sym.scope_level == 0:  # Ámbito global
                 if tree.is_array and tree.array_size:
-                    # Array variable
+                    # Variable de arreglo
                     code_file.write(f"var_{tree.name}: .space {tree.array_size * 4}\n")
                 else:
-                    # Simple variable
+                    # Variable simple
                     code_file.write(f"var_{tree.name}: .word 0\n")
         
-        # Check children
+        # Verificar hijos
         for i in range(MAXCHILDREN):
             if tree.child[i] is not None:
                 generateGlobals(tree.child[i])
         
-        # Check siblings
+        # Verificar hermanos
         generateGlobals(tree.sibling)
 
-# Additional helper functions for code generation
+# Funciones auxiliares adicionales para generación de código
 def globales(prog, pos, long):
-    """Function to receive global variables"""
-    # This is handled by the parser
+    """Función para recibir variables globales"""
+    # Esto es manejado por el parser
     from Parser import recibeParser
     recibeParser(prog, pos, long)

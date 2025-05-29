@@ -4,22 +4,22 @@ from symtab import *
 Error = False
 current_function = None
 function_return_type = None
-# Add a scope mapping to track which scope each node belongs to
+# Agregar un mapeo de ámbitos para rastrear a qué ámbito pertenece cada nodo
 node_scope_map = {}
 
 def error(lineno, message):
-    """Reportar un error semantico"""
+    """Reportar un error semántico"""
     global Error
     Error = True
-    print(f">>> Error semantico en linea {lineno}: {message}")
+    print(f">>> Error semántico en línea {lineno}: {message}")
 
 def warning(lineno, message):
-    """Reportar una advertencia semantica"""
-    print(f">>> Advertencia en linea {lineno}: {message}")
+    """Reportar una advertencia semántica"""
+    print(f">>> Advertencia en línea {lineno}: {message}")
 
 def traverse(t, preProc, postProc):
     """
-    Recorrido generico del arbol sintactico:
+    Recorrido genérico del árbol sintáctico:
     - preProc se aplica en preorden
     - postProc se aplica en postorden
     """
@@ -36,14 +36,14 @@ def nullProc(t):
 
 def markFunctionBodies(tree):
     """
-    Marca los nodos compuestos que son cuerpos de funcion
-    para manejar correctamente los ambitos
+    Marca los nodos compuestos que son cuerpos de función
+    para manejar correctamente los ámbitos
     """
     if tree is None:
         return
         
     if tree.nodekind == NodeKind.DeclK and tree.decl == DeclKind.FunK:
-        # El primer hijo de una declaracion de funcion es su cuerpo
+        # El primer hijo de una declaración de función es su cuerpo
         if tree.child[0] is not None:
             tree.child[0].is_function_body = True
     
@@ -56,18 +56,18 @@ def markFunctionBodies(tree):
         markFunctionBodies(tree.sibling)
 
 def insertNode(t):
-    """Inserta nodos en la tabla de simbolos durante la primera pasada"""
+    """Inserta nodos en la tabla de símbolos durante la primera pasada"""
     global current_function, function_return_type, Error, node_scope_map
     import symtab
     
-    # Record the current scope for this node
+    # Registrar el ámbito actual para este nodo
     node_scope_map[id(t)] = symtab.current_scope
     
     if t.nodekind == NodeKind.DeclK:
         if t.decl == DeclKind.VarK:
-            # Declaracion de variable
+            # Declaración de variable
             if st_lookup(t.name, current_scope_only=True) is not None:
-                error(t.lineno, f"Variable '{t.name}' ya declarada en este ambito")
+                error(t.lineno, f"Variable '{t.name}' ya declarada en este ámbito")
             else:
                 # Verificar que las variables no sean void
                 if t.type == ExpType.Void and not t.is_array:
@@ -79,34 +79,34 @@ def insertNode(t):
                 st_insert(t.name, typ, t.lineno, attr)
                 
         elif t.decl == DeclKind.FunK:
-            # Declaracion de funcion
+            # Declaración de función
             if st_lookup(t.name, current_scope_only=True) is not None:
-                error(t.lineno, f"Funcion '{t.name}' ya declarada")
+                error(t.lineno, f"Función '{t.name}' ya declarada")
             else:
-                # Guardar informacion sobre la funcion actual
+                # Guardar información sobre la función actual
                 current_function = t.name
                 function_return_type = t.type
                 
-                # Crear y registrar la funcion
+                # Crear y registrar la función
                 typ = "int" if t.type == ExpType.Integer else "void"
-                attr = {"params": t.params, "scope": None}  # Will store function's scope
+                attr = {"params": t.params, "scope": None}  # Almacenará el ámbito de la función
                 st_insert(t.name, typ, t.lineno, attr)
                 
-                # Crear un nuevo ambito para la funcion
+                # Crear un nuevo ámbito para la función
                 func_scope = st_enter_scope()
                 
-                # Store the function's scope
+                # Almacenar el ámbito de la función
                 func_sym = st_lookup(t.name)
                 if func_sym and func_sym.attr:
                     func_sym.attr["scope"] = func_scope
                 
-                # Insertar parametros en el ambito de la funcion
+                # Insertar parámetros en el ámbito de la función
                 for param in t.params:
-                    # Skip void parameters without names
+                    # Saltar parámetros void sin nombres
                     if not hasattr(param, 'name') or param.name is None:
                         continue
                     
-                    # Ensure param has proper attributes
+                    # Asegurar que el parámetro tenga atributos apropiados
                     if not hasattr(param, 'type'):
                         param.type = ExpType.Integer
                     if not hasattr(param, 'is_array'):
@@ -115,56 +115,56 @@ def insertNode(t):
                     param_type = "int" if param.type == ExpType.Integer else "void"
                     param_attr = {"is_array": param.is_array}
                     
-                    # Insert parameter with its line number if available
+                    # Insertar parámetro con su número de línea si está disponible
                     param_lineno = param.lineno if hasattr(param, 'lineno') else t.lineno
                     st_insert(param.name, param_type, param_lineno, param_attr)
                 
     elif t.nodekind == NodeKind.StmtK:
-        # Manejo de sentencias con ambitos
+        # Manejo de sentencias con ámbitos
         if t.stmt == StmtKind.CompoundK:
-            # Para bloques compuestos que no son cuerpo de funcion
+            # Para bloques compuestos que no son cuerpo de función
             if not hasattr(t, 'is_function_body') or not t.is_function_body:
                 st_enter_scope()
 
 def exitScope(t):
-    """Maneja la salida de ambitos durante la primera pasada"""
+    """Maneja la salida de ámbitos durante la primera pasada"""
     global current_function, function_return_type
     
     if t.nodekind == NodeKind.StmtK:
         if t.stmt == StmtKind.CompoundK:
-            # Para bloques compuestos que no son cuerpo de funcion
+            # Para bloques compuestos que no son cuerpo de función
             if not hasattr(t, 'is_function_body') or not t.is_function_body:
                 st_exit_scope()
     
     elif t.nodekind == NodeKind.DeclK:
         if t.decl == DeclKind.FunK:
-            # Salir del ambito de la funcion
+            # Salir del ámbito de la función
             st_exit_scope()
             current_function = None
             function_return_type = None
 
 def enterScopeForCheck(t):
-    """Enter appropriate scope for type checking"""
+    """Entrar al ámbito apropiado para verificación de tipos"""
     global current_function, function_return_type
     import symtab
     
     if t.nodekind == NodeKind.DeclK and t.decl == DeclKind.FunK:
-        # Store function info
+        # Almacenar información de la función
         current_function = t.name
         function_return_type = t.type
         
-        # Get the function's scope from symbol table
+        # Obtener el ámbito de la función desde la tabla de símbolos
         func_sym = st_lookup(t.name)
         if func_sym and func_sym.attr and "scope" in func_sym.attr:
-            # Enter the function's scope
+            # Entrar al ámbito de la función
             target_scope = func_sym.attr["scope"]
-            # We need to manipulate the scope stack to enter the right scope
+            # Necesitamos manipular la pila de ámbitos para entrar al ámbito correcto
             symtab.current_scope = target_scope
             if target_scope not in symtab.scope_stack:
                 symtab.scope_stack.append(target_scope)
     
     elif t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.CompoundK:
-        # For compound statements, check if we have a recorded scope
+        # Para declaraciones compuestas, verificar si tenemos un ámbito registrado
         node_id = id(t)
         if node_id in node_scope_map:
             target_scope = node_scope_map[node_id]
@@ -173,12 +173,12 @@ def enterScopeForCheck(t):
                 symtab.scope_stack.append(target_scope)
 
 def exitScopeForCheck(t):
-    """Exit scope after type checking"""
+    """Salir del ámbito después de la verificación de tipos"""
     global current_function, function_return_type
     import symtab
     
     if t.nodekind == NodeKind.DeclK and t.decl == DeclKind.FunK:
-        # Exit function scope
+        # Salir del ámbito de la función
         if len(symtab.scope_stack) > 1:
             symtab.scope_stack.pop()
             symtab.current_scope = symtab.scope_stack[-1]
@@ -186,14 +186,14 @@ def exitScopeForCheck(t):
         function_return_type = None
     
     elif t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.CompoundK:
-        # Exit compound statement scope
+        # Salir del ámbito de la declaración compuesta
         if not hasattr(t, 'is_function_body') or not t.is_function_body:
             if len(symtab.scope_stack) > 1:
                 symtab.scope_stack.pop()
                 symtab.current_scope = symtab.scope_stack[-1]
 
 def checkNode(t):
-    """Realiza verificacion de tipos en un nodo durante la segunda pasada"""
+    """Realiza verificación de tipos en un nodo durante la segunda pasada"""
     global Error
     
     if t.nodekind == NodeKind.ExpK:
@@ -204,7 +204,7 @@ def checkNode(t):
         checkDecl(t)
 
 def checkExp(t):
-    """Verifica tipos para nodos de expresion"""
+    """Verifica tipos para nodos de expresión"""
     global Error
     
     if t.exp == ExpKind.OpK:
@@ -223,7 +223,7 @@ def checkExp(t):
         if right_type != ExpType.Integer:
             error(t.lineno, f"Operando derecho del operador {t.op.name} debe ser entero")
             
-        # Establecer el tipo resultante segun el operador
+        # Establecer el tipo resultante según el operador
         if t.op in [TokenType.LT, TokenType.LTE, TokenType.GT, TokenType.GTE, TokenType.EQ, TokenType.NEQ]:
             t.type = ExpType.Boolean
         else:
@@ -248,19 +248,19 @@ def checkExp(t):
         elif not sym.attr or not sym.attr.get('is_array'):
             error(t.lineno, f"'{t.name}' no es un arreglo")
             
-        # Verificar que el indice sea entero
+        # Verificar que el índice sea entero
         if t.child[0] is not None:
             idx_type = getattr(t.child[0], 'type', None)
             if idx_type != ExpType.Integer:
-                error(t.lineno, "El indice del arreglo debe ser entero")
+                error(t.lineno, "El índice del arreglo debe ser entero")
     
     elif t.exp == ExpKind.CallK:
-        # Verificar llamada a funcion
+        # Verificar llamada a función
         sym = st_lookup(t.name)
         if sym is None:
             error(t.lineno, f"Identificador '{t.name}' no declarado")
         else:
-            # Verificar parametros si hay informacion disponible
+            # Verificar parámetros si hay información disponible
             if sym.attr and 'params' in sym.attr:
                 expected_params = sym.attr['params']
                 
@@ -272,7 +272,7 @@ def checkExp(t):
                     arg = arg.sibling
                 
                 if arg_count != len(expected_params):
-                    error(t.lineno, f"Funcion '{t.name}' espera {len(expected_params)} argumentos, pero recibio {arg_count}")
+                    error(t.lineno, f"Función '{t.name}' espera {len(expected_params)} argumentos, pero recibió {arg_count}")
                 
                 # Verificar tipos de argumentos
                 arg = t.child[0]
@@ -280,13 +280,13 @@ def checkExp(t):
                     if arg is None:
                         break
                     
-                    # Get parameter info
+                    # Obtener información del parámetro
                     if hasattr(param, 'type'):
-                        # It's a TreeNode
+                        # Es un TreeNode
                         param_type = 'int' if param.type == ExpType.Integer else 'void'
                         is_array = param.is_array if hasattr(param, 'is_array') else False
                     else:
-                        # It's a dict
+                        # Es un diccionario
                         param_type = param.get('type', 'int')
                         is_array = param.get('is_array', False)
                     
@@ -294,7 +294,7 @@ def checkExp(t):
                     if param_type == 'int' and arg_type != ExpType.Integer:
                         error(t.lineno, f"Argumento {i+1} debe ser entero")
                     
-                    # Si el parametro es un arreglo
+                    # Si el parámetro es un arreglo
                     if is_array:
                         if arg.exp != ExpKind.IdK:
                             error(t.lineno, f"Argumento {i+1} debe ser un arreglo")
@@ -310,26 +310,26 @@ def checkStmt(t):
     global Error, function_return_type
     
     if t.stmt == StmtKind.IfK:
-        # Verificar que la condicion sea booleana o entera
+        # Verificar que la condición sea booleana o entera
         if t.child[0] is not None:
             cond_type = getattr(t.child[0], 'type', None)
             if cond_type is not None and cond_type != ExpType.Boolean and cond_type != ExpType.Integer:
-                error(t.lineno, "La condicion del if debe ser booleana o entera")
+                error(t.lineno, "La condición del if debe ser booleana o entera")
     
     elif t.stmt == StmtKind.WhileK:
-        # Verificar que la condicion sea booleana o entera
+        # Verificar que la condición sea booleana o entera
         if t.child[0] is not None:
             cond_type = getattr(t.child[0], 'type', None)
             if cond_type is not None and cond_type != ExpType.Boolean and cond_type != ExpType.Integer:
-                error(t.lineno, "La condicion del while debe ser booleana o entera")
+                error(t.lineno, "La condición del while debe ser booleana o entera")
     
     elif t.stmt == StmtKind.AssignK:
-        # Verificar asignacion
+        # Verificar asignación
         if t.child[0] is None:
             return
             
         if t.child[0].exp == ExpKind.SubscriptK:
-            # Asignacion a elemento de arreglo
+            # Asignación a elemento de arreglo
             if t.child[1] is not None:
                 # Verificar que el valor asignado sea entero
                 val_type = getattr(t.child[1], 'type', None)
@@ -337,7 +337,7 @@ def checkStmt(t):
                     error(t.lineno, "Solo se pueden asignar valores enteros a elementos de arreglo")
         
         elif t.child[0].exp == ExpKind.IdK:
-            # Asignacion a variable
+            # Asignación a variable
             sym = st_lookup(t.child[0].name)
             if sym is None:
                 error(t.lineno, f"Identificador '{t.child[0].name}' no declarado")
@@ -356,20 +356,20 @@ def checkStmt(t):
     elif t.stmt == StmtKind.ReturnK:
         # Verificar retorno
         if t.child[0] is None:
-            # Retorno vacio, debe ser funcion void
+            # Retorno vacío, debe ser función void
             if function_return_type != ExpType.Void:
-                error(t.lineno, "Retorno sin valor en funcion no void")
+                error(t.lineno, "Retorno sin valor en función no void")
         else:
             # Retorno con valor
             if function_return_type == ExpType.Void:
-                error(t.lineno, "Retorno con valor en funcion void")
+                error(t.lineno, "Retorno con valor en función void")
             else:
                 ret_type = getattr(t.child[0], 'type', None)
                 if function_return_type == ExpType.Integer and ret_type != ExpType.Integer:
                     error(t.lineno, "El valor de retorno debe ser entero")
 
 def checkDecl(t):
-    """Verifica tipos para nodos de declaracion"""
+    """Verifica tipos para nodos de declaración"""
     global Error
     
     if t.decl == DeclKind.VarK:
@@ -378,34 +378,34 @@ def checkDecl(t):
             error(t.lineno, f"Variable '{t.name}' no puede ser de tipo void")
     
     elif t.decl == DeclKind.ParamK:
-        # Verificar que los parametros no sean void a menos que sea el unico parametro
+        # Verificar que los parámetros no sean void a menos que sea el único parámetro
         if t.type == ExpType.Void and not t.is_array:
-            error(t.lineno, f"Parametro '{t.name}' no puede ser de tipo void")
+            error(t.lineno, f"Parámetro '{t.name}' no puede ser de tipo void")
 
 def buildSymtab(syntaxTree, imprime=True):
     """
-    Construye la tabla de simbolos mediante un recorrido 
-    en preorden del arbol sintactico
+    Construye la tabla de símbolos mediante un recorrido 
+    en preorden del árbol sintáctico
     """
     global Error, node_scope_map
     Error = False
     
-    # Reset symbol table
+    # Reiniciar tabla de símbolos
     from symtab import table, scope_stack, current_scope, scope_count
     table.clear()
     scope_stack.clear()
     scope_stack.append(0)
-    st_exit_scope()  # This will reset current_scope to 0
+    st_exit_scope()  # Esto reiniciará current_scope a 0
     node_scope_map.clear()
     
     # Registrar funciones predefinidas
     st_insert("input", "int", 0, {"params": []})
     st_insert("output", "void", 0, {"params": [{"name": "x", "type": "int", "is_array": False}]})
     
-    # Marcar nodos compuestos que son cuerpos de funcion
+    # Marcar nodos compuestos que son cuerpos de función
     markFunctionBodies(syntaxTree)
     
-    # Primer recorrido: insertar identificadores y manejar ambitos
+    # Primer recorrido: insertar identificadores y manejar ámbitos
     traverse(syntaxTree, insertNode, exitScope)
     
     if imprime:
@@ -414,47 +414,47 @@ def buildSymtab(syntaxTree, imprime=True):
     return Error
 
 def typeCheckTraverse(t):
-    """Special traversal for type checking that maintains scope context"""
+    """Recorrido especial para verificación de tipos que mantiene el contexto de ámbito"""
     if t is None:
         return
     
-    # Enter scope if needed
+    # Entrar al ámbito si es necesario
     enterScopeForCheck(t)
     
-    # Check the node
+    # Verificar el nodo
     checkNode(t)
     
-    # Process children
+    # Procesar hijos
     for i in range(MAXCHILDREN):
         if t.child[i] is not None:
             typeCheckTraverse(t.child[i])
     
-    # Exit scope if needed
+    # Salir del ámbito si es necesario
     exitScopeForCheck(t)
     
-    # Process siblings
+    # Procesar hermanos
     if t.sibling is not None:
         typeCheckTraverse(t.sibling)
 
 def typeCheck(syntaxTree):
     """
-    Realiza la verificacion de tipos mediante un recorrido 
-    en postorden del arbol sintactico
+    Realiza la verificación de tipos mediante un recorrido 
+    en postorden del árbol sintáctico
     """
     global Error, current_function, function_return_type
     
-    # Reset function tracking
+    # Reiniciar seguimiento de funciones
     current_function = None
     function_return_type = None
     
-    # Reset scopes to start fresh
+    # Reiniciar ámbitos para empezar fresco
     from symtab import scope_stack, current_scope
-    # Keep only global scope
+    # Mantener solo el ámbito global
     while len(scope_stack) > 1:
         scope_stack.pop()
-    st_exit_scope()  # Reset to scope 0
+    st_exit_scope()  # Reiniciar al ámbito 0
     
-    # Do a special traversal that maintains scope context
+    # Hacer un recorrido especial que mantenga el contexto de ámbito
     typeCheckTraverse(syntaxTree)
     
     return Error
@@ -474,18 +474,18 @@ def semantica(syntaxTree, imprime=True):
     buildSymtab(syntaxTree, imprime)
     
     if not Error:
-        # IMPORTANT: Infer types before type checking
+        # IMPORTANTE: Inferir tipos antes de la verificación de tipos
         from symtab import inferTypes
         if imprime:
-            print("Inferring Types...")
+            print("Infiriendo Tipos...")
         inferTypes(syntaxTree)
         
         # Verificar tipos
         if imprime:
-            print("Checking Types...")
+            print("Verificando Tipos...")
         typeCheck(syntaxTree)
         if imprime:
-            print("Type Checking Finished")
+            print("Verificación de Tipos Terminada")
     
     if imprime:
         if Error:

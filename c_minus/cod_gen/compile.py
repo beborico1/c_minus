@@ -2,10 +2,10 @@
 from globalTypes import *
 from Parser import *
 from semantic import *
-from symtab import inferTypes  # Import inferTypes from symtab
+from symtab import inferTypes  # Importar inferTypes desde symtab
 from cgen import *
 
-# Get filename from command line or use default
+# Obtener nombre de archivo de línea de comandos o usar predeterminado
 import sys
 if len(sys.argv) > 1:
     fileName = sys.argv[1]
@@ -14,14 +14,14 @@ else:
 
 try:
     f = open(fileName + '.c-', 'r')
-    programa = f.read()  # Read entire file to compile
-    f.close()  # Close source file
-    progLong = len(programa)  # Original program length
-    programa = programa + '$'  # Add $ character to represent EOF
-    posicion = 0  # Current character position
+    programa = f.read()  # Leer archivo completo para compilar
+    f.close()  # Cerrar archivo fuente
+    progLong = len(programa)  # Longitud original del programa
+    programa = programa + '$'  # Agregar carácter $ para representar EOF
+    posicion = 0  # Posición actual del carácter
 
     Error = False
-    recibeParser(programa, posicion, progLong)  # Send globals to parser
+    recibeParser(programa, posicion, progLong)  # Enviar globales al parser
     syntaxTree, Error = parse(False)
 
     if not Error:
@@ -31,12 +31,12 @@ try:
         
     if not Error:
         print()
-        print("Generating Code...")
+        print("Generando Código...")
         codeGen(syntaxTree, fileName + ".s")
-        print(f"Code generated in {fileName}.s")
+        print(f"Código generado en {fileName}.s")
         
 except FileNotFoundError:
-    print(f"Error: File '{fileName}.c-' not found")
+    print(f"Error: Archivo '{fileName}.c-' no encontrado")
 except Exception as e:
     print(f"Error: {e}")
     import traceback
